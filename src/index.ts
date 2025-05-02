@@ -1,6 +1,6 @@
 // src/index.ts
 
-import "./set-global"; // This must be the first import!
+import "./set-global"; 
 import path from "path";
 globalThis.CN_ROOT = globalThis.CN_ROOT || path.resolve(__dirname, "..");
 
@@ -12,16 +12,13 @@ import { createLogger, format, transports } from "winston";
 import { getCluster } from "./lib/clusterProvider";
 import { config } from 'dotenv';
 
-// Load environment variables
 config();
 
-// Server configuration
 const MCP_SERVER_NAME = "couchbase";
 const TRANSPORT_MODE = process.env.MCP_TRANSPORT || "stdio";
 const SERVER_PORT = parseInt(process.env.FASTMCP_PORT || "8080");
 const READ_ONLY_QUERY_MODE = process.env.READ_ONLY_QUERY_MODE !== "false";
 
-// Configure logging
 const logger = createLogger({
     level: 'info',
     format: format.combine(
@@ -172,37 +169,7 @@ server.tool(
     "get_scopes_and_collections_in_bucket",
     "Get the names of all scopes and collections in the bucket.",
     {},
-    async (ctx) => {
-        const bucket = ctx.lifespanContext.bucket;
-
-        if (!bucket) {
-            throw new Error("Bucket is not initialized");
-        }
-
-        try {
-            const scopesCollections: Record<string, string[]> = {};
-            const collectionManager = bucket.collections();
-            const scopes = await collectionManager.getAllScopes();
-
-            for (const scope of scopes) {
-                const collectionNames = scope.collections.map(c => c.name);
-                scopesCollections[scope.name] = collectionNames;
-            }
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Available scopes and collections in bucket "${CB_BUCKET_NAME}":\n${JSON.stringify(scopesCollections, null, 2)}`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error getting scopes and collections: ${errorMsg}`);
-            throw error;
-        }
-    }
+    getScopesAndCollectionsHandler
 );
 
 server.tool(
@@ -379,6 +346,21 @@ async function main() {
         appContext.capellaConn = capellaConn;
         appContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
 
+        // Simulate a context object as expected by your tool handler
+        const testCtx = {
+            lifespanContext: {
+                bucket: capellaConn.defaultBucket,
+                readOnlyQueryMode: READ_ONLY_QUERY_MODE,
+            }
+        };
+
+        try {
+            const result = await getScopesAndCollectionsHandler(testCtx);
+            console.log("Startup test: List of scopes and collections:", result.content[0].text);
+        } catch (err) {
+            console.error("Startup test failed:", err);
+        }
+
         // Create appropriate transport based on configuration
         let transport;
         if (TRANSPORT_MODE === "sse") {
@@ -408,3 +390,34 @@ main().catch((error) => {
     logger.error(`Fatal error in main(): ${errorMsg}`);
     process.exit(1);
 });
+
+export async function getScopesAndCollectionsHandler(ctx: any) {
+    const bucket = ctx.lifespanContext.bucket;
+
+    if (!bucket) {
+        throw new Error("Bucket is not initialized");
+    }
+
+    try {
+        const scopesCollections: Record<string, string[]> = {};
+        const collectionManager = bucket.collections();
+        const scopes = await collectionManager.getAllScopes();
+
+        for (const scope of scopes) {
+            const collectionNames = scope.collections.map(c => c.name);
+            scopesCollections[scope.name] = collectionNames;
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error getting scopes and collections: ${errorMsg}`);
+    }
+}
