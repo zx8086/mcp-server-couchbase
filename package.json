@@ -1,0 +1,36 @@
+{
+  "name": "mcp-couchbase",
+  "version": "0.2.0",
+  "description": "Couchbase MCP Server - The Developer Data Platform for Critical Applications in Our AI World (TypeScript/Bun Version)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "src/index.ts",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+    "start": "bun run dist/index.js --transport stdio",
+    "start:sse": "bun run dist/index.js --transport sse",
+    "dev": "bun run src/index.ts --transport stdio",
+    "dev:sse": "bun run src/index.ts --transport sse"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "couchbase": "^4.3.5",
+    "dotenv": "^16.4.7",
+    "winston": "^3.17.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/bun": "^1.2.8",
+    "bun-types": "latest",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zx8086/mcp-server-couchbase"
+  }
+}
