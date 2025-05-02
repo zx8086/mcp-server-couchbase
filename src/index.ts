@@ -1,11 +1,15 @@
 // src/index.ts
 
+import "./set-global"; // This must be the first import!
+import path from "path";
+globalThis.CN_ROOT = globalThis.CN_ROOT || path.resolve(__dirname, "..");
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import { createLogger, format, transports } from "winston";
-import { connect, Cluster, PasswordAuthenticator, ClusterOptions, Collection, Scope, Bucket } from 'couchbase';
+import { getCluster } from "./lib/clusterProvider";
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -16,12 +20,6 @@ const MCP_SERVER_NAME = "couchbase";
 const TRANSPORT_MODE = process.env.MCP_TRANSPORT || "stdio";
 const SERVER_PORT = parseInt(process.env.FASTMCP_PORT || "8080");
 const READ_ONLY_QUERY_MODE = process.env.READ_ONLY_QUERY_MODE !== "false";
-
-// Couchbase configuration
-const CB_CONNECTION_STRING = process.env.CB_CONNECTION_STRING;
-const CB_USERNAME = process.env.CB_USERNAME;
-const CB_PASSWORD = process.env.CB_PASSWORD;
-const CB_BUCKET_NAME = process.env.CB_BUCKET_NAME;
 
 // Configure logging
 const logger = createLogger({
@@ -37,8 +35,7 @@ const logger = createLogger({
 
 // Application context class
 class AppContext {
-    cluster: Cluster | null = null;
-    bucket: Bucket | null = null;
+    capellaConn: Awaited<ReturnType<typeof getCluster>> | null = null;
     readOnlyQueryMode: boolean = true;
 }
 
@@ -374,32 +371,13 @@ async function main() {
     try {
         logger.info("Starting Couchbase MCP Server...");
 
-        // Validate configuration
-        if (!CB_CONNECTION_STRING || !CB_USERNAME || !CB_PASSWORD || !CB_BUCKET_NAME) {
-            throw new Error("Missing required Couchbase configuration. Please check environment variables.");
-        }
+        // Initialize Couchbase connection using the new structure
+        const capellaConn = await getCluster();
 
-        logger.info("Creating Couchbase cluster connection...");
-
-        // Connect to Couchbase
-        const auth = new PasswordAuthenticator(CB_USERNAME, CB_PASSWORD);
-        const options = new ClusterOptions(auth);
-        options.applyProfile("wan_development");
-
-        const cluster = await connect(CB_CONNECTION_STRING, options);
-        await cluster.waitUntilReady(5000); // 5 seconds timeout
-        logger.info("Successfully connected to Couchbase cluster");
-
-        const bucket = cluster.bucket(CB_BUCKET_NAME);
-
-        // Create application context
+        // Create application context once
         const appContext = new AppContext();
-        appContext.cluster = cluster;
-        appContext.bucket = bucket;
+        appContext.capellaConn = capellaConn;
         appContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
-
-        // Set the application context for the server
-        server.setLifespanContext(appContext);
 
         // Create appropriate transport based on configuration
         let transport;
