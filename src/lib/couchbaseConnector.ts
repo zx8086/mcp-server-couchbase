@@ -38,7 +38,7 @@ export interface capellaConn {
 }
 
 export async function clusterConn(): Promise<capellaConn> {
-  console.log("Attempting to connect to Couchbase...");
+  console.error("Attempting to connect to Couchbase...");
   try {
     const clusterConnStr: string = Bun.env.COUCHBASE_URL!;
     const username: string = Bun.env.COUCHBASE_USERNAME!;
@@ -47,7 +47,7 @@ export async function clusterConn(): Promise<capellaConn> {
     const scopeName: string = Bun.env.COUCHBASE_SCOPE!;
     const collectionName: string = Bun.env.COUCHBASE_COLLECTION!;
 
-    console.log(`Configuring connection with the following default connection details:
+    console.error(`Configuring connection with the following default connection details:
                     URL: ${clusterConnStr},
                     Username: ${username},
                     Bucket: ${bucketName},
@@ -58,14 +58,14 @@ export async function clusterConn(): Promise<capellaConn> {
       username: username,
       password: password,
     });
-    console.log("Cluster connection established.");
+    console.error("Cluster connection established.");
 
     const bucket: Bucket = cluster.bucket(bucketName);
-    console.log(`Bucket ${bucketName} accessed.`);
+    console.error(`Bucket ${bucketName} accessed.`);
 
     const scope: Scope = bucket.scope(scopeName);
     const collection: Collection = scope.collection(collectionName);
-    console.log(`Collection ${collectionName} accessed under scope ${scopeName}.`);
+    console.error(`Collection ${collectionName} accessed under scope ${scopeName}.`);
 
     return {
       cluster,

@@ -14,7 +14,7 @@ import { config } from 'dotenv';
 
 config();
 
-const MCP_SERVER_NAME = "couchbase";
+const MCP_SERVER_NAME = "ouchbase-capella-mcp";
 const TRANSPORT_MODE = process.env.MCP_TRANSPORT || "stdio";
 const SERVER_PORT = parseInt(process.env.FASTMCP_PORT || "8080");
 const READ_ONLY_QUERY_MODE = process.env.READ_ONLY_QUERY_MODE !== "false";
@@ -27,7 +27,7 @@ const logger = createLogger({
             return `${timestamp} - ${MCP_SERVER_NAME} - ${level}: ${message}`;
         })
     ),
-    transports: [new transports.Console()]
+    transports: [new transports.Console({ stderrLevels: ['info', 'warn', 'error', 'debug', 'verbose', 'silly'] })]
 });
 
 // Application context class
@@ -168,6 +168,18 @@ async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: string): 
 
 // --- Tool Handlers as Named Functions ---
 
+function withBucket(handler) {
+    return async (ctx, ...args) => {
+        if (!ctx.lifespanContext) ctx.lifespanContext = {};
+        if (!ctx.lifespanContext.bucket) {
+            // Attach your default bucket here
+            ctx.lifespanContext.bucket = globalThis.capellaConn.defaultBucket;
+            ctx.lifespanContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
+        }
+        return handler(ctx, ...args);
+    };
+}
+
 export async function getScopesAndCollectionsHandler(ctx: any) {
     const bucket = ctx.lifespanContext.bucket;
 
@@ -300,7 +312,7 @@ server.tool(
     "get_scopes_and_collections_in_bucket",
     "Get the names of all scopes and collections in the bucket.",
     {},
-    getScopesAndCollectionsHandler
+    withBucket(getScopesAndCollectionsHandler)
 );
 
 server.tool(
@@ -379,70 +391,70 @@ async function main() {
         };
 
         // --- Startup tests for each tool ---
-        try {
-            // 1. List all scopes and collections
-            const scopesResult = await getScopesAndCollectionsHandler(testCtx);
-            console.log("Startup test: List of scopes and collections:", scopesResult.content[0].text);
-            await sleep(15000);
+        // try {
+        //     // 1. List all scopes and collections
+        //     const scopesResult = await getScopesAndCollectionsHandler(testCtx);
+        //     console.log("Startup test: List of scopes and collections:", scopesResult.content[0].text);
+        //     await sleep(15000);
 
-            // // 2. Get schema for _default._default
-            // const schemaResult = await getSchemaForCollectionHandler(testCtx, {
-            //     scope_name: "_default",
-            //     collection_name: "_default"
-            // });
-            // console.log("Startup test: Schema for _default._default:", schemaResult.content[0].text);
-            // await sleep(15000);
+        //     // // 2. Get schema for _default._default
+        //     // const schemaResult = await getSchemaForCollectionHandler(testCtx, {
+        //     //     scope_name: "_default",
+        //     //     collection_name: "_default"
+        //     // });
+        //     // console.log("Startup test: Schema for _default._default:", schemaResult.content[0].text);
+        //     // await sleep(15000);
 
-            // 3. Upsert a test document
-            let upsertSuccess = false;
-            try {
-                const upsertResult = await upsertDocumentByIdHandler(testCtx, {
-                    scope_name: "_default",
-                    collection_name: "_default",
-                    document_id: "startup_test_doc",
-                    document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
-                });
-                console.log("Startup test: Upsert document:", upsertResult.content[0].text);
-                upsertSuccess = true;
-            } catch (err) {
-                console.error("Startup test: Upsert failed:", err);
-            }
-            await sleep(15000);
+        //     // 3. Upsert a test document
+        //     let upsertSuccess = false;
+        //     try {
+        //         const upsertResult = await upsertDocumentByIdHandler(testCtx, {
+        //             scope_name: "_default",
+        //             collection_name: "_default",
+        //             document_id: "startup_test_doc",
+        //             document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
+        //         });
+        //         console.log("Startup test: Upsert document:", upsertResult.content[0].text);
+        //         upsertSuccess = true;
+        //     } catch (err) {
+        //         console.error("Startup test: Upsert failed:", err);
+        //     }
+        //     await sleep(15000);
 
-            // 4. Get the test document (only if upsert succeeded)
-            if (upsertSuccess) {
-                try {
-                    const getDocResult = await getDocumentByIdHandler(testCtx, {
-                        scope_name: "_default",
-                        collection_name: "_default",
-                        document_id: "startup_test_doc"
-                    });
-                    console.log("Startup test: Get document:", getDocResult.content[0].text);
-                } catch (err) {
-                    console.error("Startup test: Get document failed:", err);
-                }
-                await sleep(15000);
-            }
+        //     // 4. Get the test document (only if upsert succeeded)
+        //     if (upsertSuccess) {
+        //         try {
+        //             const getDocResult = await getDocumentByIdHandler(testCtx, {
+        //                 scope_name: "_default",
+        //                 collection_name: "_default",
+        //                 document_id: "startup_test_doc"
+        //             });
+        //             console.log("Startup test: Get document:", getDocResult.content[0].text);
+        //         } catch (err) {
+        //             console.error("Startup test: Get document failed:", err);
+        //         }
+        //         await sleep(15000);
+        //     }
 
-            // 5. Run a simple SQL++ query
-            const sqlResult = await runSqlPlusPlusQueryHandler(testCtx, {
-                scope_name: "_default",
-                query: "SELECT META().id, * FROM `_default` LIMIT 1"
-            });
-            console.log("Startup test: SQL++ query result:", sqlResult.content[0].text);
-            await sleep(15000);
+        //     // 5. Run a simple SQL++ query
+        //     const sqlResult = await runSqlPlusPlusQueryHandler(testCtx, {
+        //         scope_name: "_default",
+        //         query: "SELECT META().id, * FROM `_default` LIMIT 1"
+        //     });
+        //     console.log("Startup test: SQL++ query result:", sqlResult.content[0].text);
+        //     await sleep(15000);
 
-            // 6. Delete the test document
-            const deleteResult = await deleteDocumentByIdHandler(testCtx, {
-                scope_name: "_default",
-                collection_name: "_default",
-                document_id: "startup_test_doc"
-            });
-            console.log("Startup test: Delete document:", deleteResult.content[0].text);
+        //     // 6. Delete the test document
+        //     const deleteResult = await deleteDocumentByIdHandler(testCtx, {
+        //         scope_name: "_default",
+        //         collection_name: "_default",
+        //         document_id: "startup_test_doc"
+        //     });
+        //     console.log("Startup test: Delete document:", deleteResult.content[0].text);
 
-        } catch (err) {
-            console.error("Startup test failed:", err);
-        }
+        // } catch (err) {
+        //     console.error("Startup test failed:", err);
+        // }
 
         // Create appropriate transport based on configuration
         let transport;

@@ -9,7 +9,7 @@ export const getCluster = async (): Promise<capellaConn> => {
   try {
     if (!connection) {
       connection = await clusterConn();
-      console.log("Connection to Couchbase established successfully.");
+      console.error("Connection to Couchbase established successfully.");
     }
     return connection;
   } catch (error: any) {
