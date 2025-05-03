@@ -338,7 +338,27 @@ server.tool(
     "get_scopes_and_collections_in_bucket",
     "Get the names of all scopes and collections in the bucket.",
     {},
-    withBucket(getScopesAndCollectionsHandler)
+    async () => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const scopesCollections: Record<string, string[]> = {};
+        const collectionManager = bucket.collections();
+        const scopes = await collectionManager.getAllScopes();
+        for (const scope of scopes) {
+            const collectionNames = scope.collections.map(c => c.name);
+            scopesCollections[scope.name] = collectionNames;
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
+                }
+            ]
+        };
+    }
 );
 
 server.tool(
@@ -348,7 +368,27 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         collection_name: z.string().describe("Name of the collection")
     },
-    withBucket(getSchemaForCollectionHandler)
+    async ({ scope_name, collection_name }) => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const query = `INFER ${collection_name}`;
+        const scope = bucket.scope(scope_name);
+        const result = await scope.query(query);
+        const rows: any[] = [];
+        for await (const row of result.rows) {
+            rows.push(row);
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Schema for collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(rows, null, 2)}`
+                }
+            ]
+        };
+    }
 );
 
 server.tool(
@@ -359,7 +399,22 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to retrieve")
     },
-    withBucket(getDocumentByIdHandler)
+    async ({ scope_name, collection_name, document_id }) => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        const result = await collection.get(document_id);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
+                }
+            ]
+        };
+    }
 );
 
 server.tool(
@@ -371,7 +426,22 @@ server.tool(
         document_id: z.string().describe("ID of the document to upsert"),
         document_content: z.record(z.any()).describe("Content of the document")
     },
-    withBucket(upsertDocumentByIdHandler)
+    async ({ scope_name, collection_name, document_id, document_content }) => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        await collection.upsert(document_id, document_content);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
+                }
+            ]
+        };
+    }
 );
 
 server.tool(
@@ -382,7 +452,22 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to delete")
     },
-    withBucket(deleteDocumentByIdHandler)
+    async ({ scope_name, collection_name, document_id }) => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        await collection.remove(document_id);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
+                }
+            ]
+        };
+    }
 );
 
 server.tool(
@@ -392,7 +477,26 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         query: z.string().describe("SQL++ query to execute")
     },
-    withBucket(runSqlPlusPlusQueryHandler)
+    async ({ scope_name, query }) => {
+        if (!globalThis.capellaConn) {
+            globalThis.capellaConn = await getCluster();
+        }
+        const bucket = globalThis.capellaConn.defaultBucket;
+        const scope = bucket.scope(scope_name);
+        const result = await scope.query(query);
+        const rows: any[] = [];
+        for await (const row of result.rows) {
+            rows.push(row);
+        }
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Query results from scope "${scope_name}":\n${JSON.stringify(rows, null, 2)}`
+                }
+            ]
+        };
+    }
 );
 
 // Main function to start the server
@@ -434,21 +538,21 @@ async function main() {
         //     // console.log("Startup test: Schema for _default._default:", schemaResult.content[0].text);
         //     // await sleep(15000);
 
-        //     // 3. Upsert a test document
-        //     let upsertSuccess = false;
-        //     try {
-        //         const upsertResult = await upsertDocumentByIdHandler(testCtx, {
-        //             scope_name: "_default",
-        //             collection_name: "_default",
-        //             document_id: "startup_test_doc",
-        //             document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
-        //         });
-        //         console.log("Startup test: Upsert document:", upsertResult.content[0].text);
-        //         upsertSuccess = true;
-        //     } catch (err) {
-        //         console.error("Startup test: Upsert failed:", err);
-        //     }
-        //     await sleep(15000);
+            // 3. Upsert a test document
+            let upsertSuccess = false;
+            try {
+                const upsertResult = await upsertDocumentByIdHandler(testCtx, {
+                    scope_name: "_default",
+                    collection_name: "_default",
+                    document_id: "startup_test_doc",
+                    document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
+                });
+                console.log("Startup test: Upsert document:", upsertResult.content[0].text);
+                upsertSuccess = true;
+            } catch (err) {
+                console.error("Startup test: Upsert failed:", err);
+            }
+            await sleep(15000);
 
         //     // 4. Get the test document (only if upsert succeeded)
         //     if (upsertSuccess) {
