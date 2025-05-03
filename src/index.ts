@@ -149,7 +149,9 @@ async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: string): 
         }
 
         // Run the query
-        const result = await scope.query(query);
+        const result = await scope.query(
+            "SELECT META().id, * FROM `_default` LIMIT 1"
+        );
         const rows: any[] = [];
 
         for await (const row of result.rows) {
@@ -164,7 +166,136 @@ async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: string): 
     }
 }
 
-// Register MCP tools
+// --- Tool Handlers as Named Functions ---
+
+export async function getScopesAndCollectionsHandler(ctx: any) {
+    const bucket = ctx.lifespanContext.bucket;
+
+    if (!bucket) {
+        throw new Error("Bucket is not initialized");
+    }
+
+    try {
+        const scopesCollections: Record<string, string[]> = {};
+        const collectionManager = bucket.collections();
+        const scopes = await collectionManager.getAllScopes();
+
+        for (const scope of scopes) {
+            const collectionNames = scope.collections.map(c => c.name);
+            scopesCollections[scope.name] = collectionNames;
+        }
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error getting scopes and collections: ${errorMsg}`);
+    }
+}
+
+export async function getSchemaForCollectionHandler(ctx: any, { scope_name, collection_name }: any) {
+    try {
+        const query = `INFER ${collection_name}`;
+        const result = await runSqlPlusPlusQuery(ctx, scope_name, query);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Schema for collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result, null, 2)}`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error getting schema: ${errorMsg}`);
+    }
+}
+
+export async function getDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id }: any) {
+    const bucket = ctx.lifespanContext.bucket;
+    if (!bucket) throw new Error("Bucket is not initialized");
+    try {
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        const result = await collection.get(document_id);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error getting document ${document_id}: ${errorMsg}`);
+    }
+}
+
+export async function upsertDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id, document_content }: any) {
+    const bucket = ctx.lifespanContext.bucket;
+    if (!bucket) throw new Error("Bucket is not initialized");
+    try {
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        await collection.upsert(document_id, document_content);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error upserting document ${document_id}: ${errorMsg}`);
+    }
+}
+
+export async function deleteDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id }: any) {
+    const bucket = ctx.lifespanContext.bucket;
+    if (!bucket) throw new Error("Bucket is not initialized");
+    try {
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        await collection.remove(document_id);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error deleting document ${document_id}: ${errorMsg}`);
+    }
+}
+
+export async function runSqlPlusPlusQueryHandler(ctx: any, { scope_name, query }: any) {
+    try {
+        const results = await runSqlPlusPlusQuery(ctx, scope_name, query);
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Query results from scope "${scope_name}":\n${JSON.stringify(results, null, 2)}`
+                }
+            ]
+        };
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Error running query: ${errorMsg}`);
+    }
+}
+
+// --- Register tools using the named handlers ---
+
 server.tool(
     "get_scopes_and_collections_in_bucket",
     "Get the names of all scopes and collections in the bucket.",
@@ -179,25 +310,7 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         collection_name: z.string().describe("Name of the collection")
     },
-    async (ctx, { scope_name, collection_name }) => {
-        try {
-            const query = `INFER ${collection_name}`;
-            const result = await runSqlPlusPlusQuery(ctx, scope_name, query);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Schema for collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result, null, 2)}`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error getting schema: ${errorMsg}`);
-            throw error;
-        }
-    }
+    getSchemaForCollectionHandler
 );
 
 server.tool(
@@ -208,31 +321,7 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to retrieve")
     },
-    async (ctx, { scope_name, collection_name, document_id }) => {
-        const bucket = ctx.lifespanContext.bucket;
-
-        if (!bucket) {
-            throw new Error("Bucket is not initialized");
-        }
-
-        try {
-            const collection = bucket.scope(scope_name).collection(collection_name);
-            const result = await collection.get(document_id);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error getting document ${document_id}: ${errorMsg}`);
-            throw error;
-        }
-    }
+    getDocumentByIdHandler
 );
 
 server.tool(
@@ -244,31 +333,7 @@ server.tool(
         document_id: z.string().describe("ID of the document to upsert"),
         document_content: z.record(z.any()).describe("Content of the document")
     },
-    async (ctx, { scope_name, collection_name, document_id, document_content }) => {
-        const bucket = ctx.lifespanContext.bucket;
-
-        if (!bucket) {
-            throw new Error("Bucket is not initialized");
-        }
-
-        try {
-            const collection = bucket.scope(scope_name).collection(collection_name);
-            await collection.upsert(document_id, document_content);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error upserting document ${document_id}: ${errorMsg}`);
-            throw error;
-        }
-    }
+    upsertDocumentByIdHandler
 );
 
 server.tool(
@@ -279,31 +344,7 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to delete")
     },
-    async (ctx, { scope_name, collection_name, document_id }) => {
-        const bucket = ctx.lifespanContext.bucket;
-
-        if (!bucket) {
-            throw new Error("Bucket is not initialized");
-        }
-
-        try {
-            const collection = bucket.scope(scope_name).collection(collection_name);
-            await collection.remove(document_id);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error deleting document ${document_id}: ${errorMsg}`);
-            throw error;
-        }
-    }
+    deleteDocumentByIdHandler
 );
 
 server.tool(
@@ -313,24 +354,7 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         query: z.string().describe("SQL++ query to execute")
     },
-    async (ctx, { scope_name, query }) => {
-        try {
-            const results = await runSqlPlusPlusQuery(ctx, scope_name, query);
-
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Query results from scope "${scope_name}":\n${JSON.stringify(results, null, 2)}`
-                    }
-                ]
-            };
-        } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            logger.error(`Error running query: ${errorMsg}`);
-            throw error;
-        }
-    }
+    runSqlPlusPlusQueryHandler
 );
 
 // Main function to start the server
@@ -354,9 +378,68 @@ async function main() {
             }
         };
 
+        // --- Startup tests for each tool ---
         try {
-            const result = await getScopesAndCollectionsHandler(testCtx);
-            console.log("Startup test: List of scopes and collections:", result.content[0].text);
+            // 1. List all scopes and collections
+            const scopesResult = await getScopesAndCollectionsHandler(testCtx);
+            console.log("Startup test: List of scopes and collections:", scopesResult.content[0].text);
+            await sleep(15000);
+
+            // // 2. Get schema for _default._default
+            // const schemaResult = await getSchemaForCollectionHandler(testCtx, {
+            //     scope_name: "_default",
+            //     collection_name: "_default"
+            // });
+            // console.log("Startup test: Schema for _default._default:", schemaResult.content[0].text);
+            // await sleep(15000);
+
+            // 3. Upsert a test document
+            let upsertSuccess = false;
+            try {
+                const upsertResult = await upsertDocumentByIdHandler(testCtx, {
+                    scope_name: "_default",
+                    collection_name: "_default",
+                    document_id: "startup_test_doc",
+                    document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
+                });
+                console.log("Startup test: Upsert document:", upsertResult.content[0].text);
+                upsertSuccess = true;
+            } catch (err) {
+                console.error("Startup test: Upsert failed:", err);
+            }
+            await sleep(15000);
+
+            // 4. Get the test document (only if upsert succeeded)
+            if (upsertSuccess) {
+                try {
+                    const getDocResult = await getDocumentByIdHandler(testCtx, {
+                        scope_name: "_default",
+                        collection_name: "_default",
+                        document_id: "startup_test_doc"
+                    });
+                    console.log("Startup test: Get document:", getDocResult.content[0].text);
+                } catch (err) {
+                    console.error("Startup test: Get document failed:", err);
+                }
+                await sleep(15000);
+            }
+
+            // 5. Run a simple SQL++ query
+            const sqlResult = await runSqlPlusPlusQueryHandler(testCtx, {
+                scope_name: "_default",
+                query: "SELECT META().id, * FROM `_default` LIMIT 1"
+            });
+            console.log("Startup test: SQL++ query result:", sqlResult.content[0].text);
+            await sleep(15000);
+
+            // 6. Delete the test document
+            const deleteResult = await deleteDocumentByIdHandler(testCtx, {
+                scope_name: "_default",
+                collection_name: "_default",
+                document_id: "startup_test_doc"
+            });
+            console.log("Startup test: Delete document:", deleteResult.content[0].text);
+
         } catch (err) {
             console.error("Startup test failed:", err);
         }
@@ -391,33 +474,6 @@ main().catch((error) => {
     process.exit(1);
 });
 
-export async function getScopesAndCollectionsHandler(ctx: any) {
-    const bucket = ctx.lifespanContext.bucket;
-
-    if (!bucket) {
-        throw new Error("Bucket is not initialized");
-    }
-
-    try {
-        const scopesCollections: Record<string, string[]> = {};
-        const collectionManager = bucket.collections();
-        const scopes = await collectionManager.getAllScopes();
-
-        for (const scope of scopes) {
-            const collectionNames = scope.collections.map(c => c.name);
-            scopesCollections[scope.name] = collectionNames;
-        }
-
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
-                }
-            ]
-        };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error(`Error getting scopes and collections: ${errorMsg}`);
-    }
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
