@@ -175,8 +175,12 @@ function withBucket(handler) {
             ctx.lifespanContext.bucket = globalThis.capellaConn.defaultBucket;
             ctx.lifespanContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
         }
-        // Always pass ctx and an object (even if undefined)
-        return handler(ctx, args[0] || {});
+        // Try to extract arguments from ctx if args[0] is not the arguments object
+        let params = args[0];
+        if (!params || !params.scope_name) {
+            params = ctx.arguments || ctx.params?.arguments || {};
+        }
+        return handler(ctx, params);
     };
 }
 
@@ -244,6 +248,7 @@ export async function getDocumentByIdHandler(ctx: any, params: any = {}) {
     try {
         const collection = bucket.scope(scope_name).collection(collection_name);
         const result = await collection.get(document_id);
+        console.error("getDocumentByIdHandler ctx:", ctx);
         return {
             content: [
                 {
