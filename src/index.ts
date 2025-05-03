@@ -172,11 +172,11 @@ function withBucket(handler) {
     return async (ctx, ...args) => {
         if (!ctx.lifespanContext) ctx.lifespanContext = {};
         if (!ctx.lifespanContext.bucket) {
-            // Attach your default bucket here
             ctx.lifespanContext.bucket = globalThis.capellaConn.defaultBucket;
             ctx.lifespanContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
         }
-        return handler(ctx, ...args);
+        // Always pass ctx and an object (even if undefined)
+        return handler(ctx, args[0] || {});
     };
 }
 
@@ -211,7 +211,11 @@ export async function getScopesAndCollectionsHandler(ctx: any) {
     }
 }
 
-export async function getSchemaForCollectionHandler(ctx: any, { scope_name, collection_name }: any) {
+export async function getSchemaForCollectionHandler(ctx: any, params: any) {
+    const { scope_name, collection_name } = params || {};
+    if (!scope_name || !collection_name) {
+        throw new Error("Missing required parameters: scope_name or collection_name");
+    }
     try {
         const query = `INFER ${collection_name}`;
         const result = await runSqlPlusPlusQuery(ctx, scope_name, query);
@@ -229,7 +233,12 @@ export async function getSchemaForCollectionHandler(ctx: any, { scope_name, coll
     }
 }
 
-export async function getDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id }: any) {
+export async function getDocumentByIdHandler(ctx: any, params: any = {}) {
+    const { scope_name, collection_name, document_id } = params;
+    logger.info(`getDocumentByIdHandler called with scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
+    if (!scope_name || !collection_name || !document_id) {
+        throw new Error(`Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
+    }
     const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
@@ -249,7 +258,11 @@ export async function getDocumentByIdHandler(ctx: any, { scope_name, collection_
     }
 }
 
-export async function upsertDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id, document_content }: any) {
+export async function upsertDocumentByIdHandler(ctx: any, params: any) {
+    const { scope_name, collection_name, document_id, document_content } = params || {};
+    if (!scope_name || !collection_name || !document_id || !document_content) {
+        throw new Error("Missing required parameters: scope_name, collection_name, document_id, or document_content");
+    }
     const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
@@ -269,7 +282,11 @@ export async function upsertDocumentByIdHandler(ctx: any, { scope_name, collecti
     }
 }
 
-export async function deleteDocumentByIdHandler(ctx: any, { scope_name, collection_name, document_id }: any) {
+export async function deleteDocumentByIdHandler(ctx: any, params: any) {
+    const { scope_name, collection_name, document_id } = params || {};
+    if (!scope_name || !collection_name || !document_id) {
+        throw new Error("Missing required parameters: scope_name, collection_name, or document_id");
+    }
     const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
@@ -289,7 +306,11 @@ export async function deleteDocumentByIdHandler(ctx: any, { scope_name, collecti
     }
 }
 
-export async function runSqlPlusPlusQueryHandler(ctx: any, { scope_name, query }: any) {
+export async function runSqlPlusPlusQueryHandler(ctx: any, params: any) {
+    const { scope_name, query } = params || {};
+    if (!scope_name || !query) {
+        throw new Error("Missing required parameters: scope_name or query");
+    }
     try {
         const results = await runSqlPlusPlusQuery(ctx, scope_name, query);
         return {
@@ -322,7 +343,7 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         collection_name: z.string().describe("Name of the collection")
     },
-    getSchemaForCollectionHandler
+    withBucket(getSchemaForCollectionHandler)
 );
 
 server.tool(
@@ -333,7 +354,7 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to retrieve")
     },
-    getDocumentByIdHandler
+    withBucket(getDocumentByIdHandler)
 );
 
 server.tool(
@@ -345,7 +366,7 @@ server.tool(
         document_id: z.string().describe("ID of the document to upsert"),
         document_content: z.record(z.any()).describe("Content of the document")
     },
-    upsertDocumentByIdHandler
+    withBucket(upsertDocumentByIdHandler)
 );
 
 server.tool(
@@ -356,7 +377,7 @@ server.tool(
         collection_name: z.string().describe("Name of the collection"),
         document_id: z.string().describe("ID of the document to delete")
     },
-    deleteDocumentByIdHandler
+    withBucket(deleteDocumentByIdHandler)
 );
 
 server.tool(
@@ -366,7 +387,7 @@ server.tool(
         scope_name: z.string().describe("Name of the scope"),
         query: z.string().describe("SQL++ query to execute")
     },
-    runSqlPlusPlusQueryHandler
+    withBucket(runSqlPlusPlusQueryHandler)
 );
 
 // Main function to start the server
@@ -376,6 +397,9 @@ async function main() {
 
         // Initialize Couchbase connection using the new structure
         const capellaConn = await getCluster();
+
+        // Make the connection available globally
+        globalThis.capellaConn = capellaConn;
 
         // Create application context once
         const appContext = new AppContext();
