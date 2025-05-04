@@ -22,7 +22,7 @@ export const config = {
         collection: Bun.env.COUCHBASE_COLLECTION
     },
     paths: {
-        root: Bun.env.CN_ROOT || path.resolve(__dirname, ".."),
+        root: Bun.env.CN_ROOT || path.resolve(import.meta.dir, ".."),
         cxxcbcCache: Bun.env.CXXCBC_CACHE_DIR || "/usr/src/app/deps/couchbase-cxx-cache"
     }
 };
