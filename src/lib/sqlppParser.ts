@@ -1,4 +1,4 @@
-// src/lib/sqlppParser.ts
+/* src/lib/sqlppParser.ts */
 
 import type { SQLPPParser, ASTNode } from "../types";
 

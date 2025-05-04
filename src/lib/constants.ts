@@ -1,4 +1,4 @@
-// src/lib/constants.ts
+/* src/lib/constants.ts */
 
 export const ENV_TRUE = ["true", "1", "y", "yes", "on"] as const;
 

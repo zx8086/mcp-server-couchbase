@@ -1,3 +1,5 @@
+/* src/tools/runSqlPlusPlusQuery.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { QueryError, createError } from "../lib/errors";
 import { logger } from "../lib/logger";

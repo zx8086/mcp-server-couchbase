@@ -1,3 +1,6 @@
+
+/* src/types/mcp.d.ts */
+
 declare module "@modelcontextprotocol/sdk/server/sse.js" {
     export interface JSONRPCMessage {
         method: string;

@@ -1,4 +1,4 @@
-// src/config.ts
+/* src/config.ts */
 
 import path from "path";
 import { isTruthy } from "./lib/constants";

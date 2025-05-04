@@ -1,7 +1,5 @@
 /* src/lib/couchbaseConnector.ts */
 
-// import config from "$config";
-// import { log, err } from "$utils/logger";
 import {
   Cluster,
   Bucket,

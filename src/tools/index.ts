@@ -1,3 +1,5 @@
+/* src/tools/index.ts */
+
 import getScopesAndCollections, { getScopesAndCollectionsHandler } from './getScopesAndCollections';
 import getSchemaForCollection, { getSchemaForCollectionHandler } from './getSchemaForCollection';
 import documentOperations, { 

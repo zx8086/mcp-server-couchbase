@@ -1,4 +1,4 @@
-// src/lib/runSqlPlusPlusQuery.ts
+/* src/lib/runSqlPlusPlusQuery.ts */
 
 import { logger } from "../lib/logger";
 import type { SQLPPParser } from "../types";

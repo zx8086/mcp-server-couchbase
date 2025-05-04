@@ -1,3 +1,5 @@
+/* src/tools/documentOperations.ts */
+
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";

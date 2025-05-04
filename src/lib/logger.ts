@@ -1,4 +1,4 @@
-// src/lib/logger.ts
+/* src/lib/logger.ts */
 
 import { createLogger, format, transports } from 'winston';
 import { config } from '../config';

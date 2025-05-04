@@ -1,4 +1,4 @@
-// src/index.ts
+/* src/index.ts */
 
 import path from "path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

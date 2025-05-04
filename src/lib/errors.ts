@@ -1,3 +1,5 @@
+/* src/lib/errors.ts */
+
 // Base error class for the application
 export class AppError extends Error {
     constructor(

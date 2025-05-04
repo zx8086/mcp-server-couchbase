@@ -1,6 +1,5 @@
 /* src/lib/clusterProvider.ts */
 
-// import { log, err } from "$utils/logger";
 import { clusterConn } from "./couchbaseConnector";
 import type { capellaConn } from "../types";
 import { logger } from "./logger";

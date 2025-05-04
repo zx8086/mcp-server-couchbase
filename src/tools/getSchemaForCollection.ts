@@ -1,3 +1,5 @@
+/* src/tools/getSchemaForCollection.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DatabaseError, createError } from "../lib/errors";
 import { logger } from "../lib/logger";
