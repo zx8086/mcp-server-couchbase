@@ -1,40 +1,40 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Bucket } from "couchbase";
+import { DatabaseError, createError } from "../lib/errors";
+import { logger } from "../lib/logger";
+import { z } from "zod";
+import type { Collection as CouchbaseCollection } from "couchbase";
 
-export const getScopesAndCollectionsHandler = async (_params: any, bucket: Bucket) => {
-    if (!bucket) {
-        throw new Error("Bucket is not initialized");
-    }
-    try {
-        const scopesCollections: Record<string, string[]> = {};
-        const collectionManager = bucket.collections();
-        const scopes = await collectionManager.getAllScopes();
-        for (const scope of scopes) {
-            const collectionNames = scope.collections.map((c: Collection) => c.name);
-            scopesCollections[scope.name] = collectionNames;
-        }
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
-                }
-            ]
-        };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error(`Error getting scopes and collections: ${errorMsg}`);
-    }
-};
-
-export default (server: McpServer, bucket: Bucket) => {
+export default function getScopesAndCollections(server: McpServer, bucket: any): void {
     server.tool(
         "get_scopes_and_collections_in_bucket",
-        "Get the names of all scopes and collections in the bucket.",
+        "Get all scopes and collections in the bucket",
         {},
-        async (_params: any) => getScopesAndCollectionsHandler(_params, bucket)
+        async () => {
+            try {
+                const scopes = await bucket.collections().getAllScopes();
+                const result: { [key: string]: string[] } = {};
+                
+                for (const scope of scopes) {
+                    const collections = scope.collections;
+                    result[scope.name] = collections.map((col: CouchbaseCollection) => col.name);
+                }
+                
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify(result, null, 2)
+                        }
+                    ]
+                };
+            } catch (error: any) {
+                throw createError('DB_ERROR', `Error getting scopes and collections`, {
+                    error: error.message
+                });
+            }
+        }
     );
-};
+}
 
 interface Collection {
     name: string;

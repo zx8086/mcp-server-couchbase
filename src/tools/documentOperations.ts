@@ -2,6 +2,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
+import { AppError, DocumentNotFoundError, DatabaseError, createError } from "../lib/errors";
 
 export const getDocumentByIdHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;
@@ -21,9 +22,14 @@ export const getDocumentByIdHandler = async (params: any, bucket: Bucket) => {
                 }
             ]
         };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error(`Error getting document ${document_id}: ${errorMsg}`);
+    } catch (error: any) {
+        if (error.name === 'DocumentNotFoundError') {
+            throw new DocumentNotFoundError(document_id);
+        }
+        throw createError('DB_ERROR', `Error getting document ${document_id}`, {
+            error: error.message,
+            documentId: document_id
+        });
     }
 };
 
@@ -44,9 +50,11 @@ export const upsertDocumentByIdHandler = async (params: any, bucket: Bucket) => 
                 }
             ]
         };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error(`Error upserting document ${document_id}: ${errorMsg}`);
+    } catch (error: any) {
+        throw createError('DB_ERROR', `Error upserting document ${document_id}`, {
+            error: error.message,
+            documentId: document_id
+        });
     }
 };
 
@@ -67,9 +75,14 @@ export const deleteDocumentByIdHandler = async (params: any, bucket: Bucket) => 
                 }
             ]
         };
-    } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        throw new Error(`Error deleting document ${document_id}: ${errorMsg}`);
+    } catch (error: any) {
+        if (error.name === 'DocumentNotFoundError') {
+            throw new DocumentNotFoundError(document_id);
+        }
+        throw createError('DB_ERROR', `Error deleting document ${document_id}`, {
+            error: error.message,
+            documentId: document_id
+        });
     }
 };
 

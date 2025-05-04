@@ -4,6 +4,7 @@
 import { clusterConn } from "./couchbaseConnector";
 import type { capellaConn } from "../types";
 import { logger } from "./logger";
+import { createError } from "./errors";
 
 let connection: capellaConn | null = null;
 
@@ -16,6 +17,8 @@ export const getCluster = async (): Promise<capellaConn> => {
     return connection;
   } catch (error: any) {
     logger.error("Error connecting to Couchbase:", error);
-    throw error;
+    throw createError('DB_ERROR', "Failed to connect to Couchbase", {
+      error: error.message
+    });
   }
 };

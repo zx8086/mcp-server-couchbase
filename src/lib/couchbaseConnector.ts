@@ -17,6 +17,7 @@ import {
 } from "couchbase";
 import type { QueryableCluster, capellaConn } from "../types";
 import { logger } from "./logger";
+import { createError } from "./errors";
 
 export async function clusterConn(): Promise<capellaConn> {
   logger.info("Attempting to connect to Couchbase...");
@@ -27,6 +28,19 @@ export async function clusterConn(): Promise<capellaConn> {
     const bucketName: string = Bun.env.COUCHBASE_BUCKET!;
     const scopeName: string = Bun.env.COUCHBASE_SCOPE!;
     const collectionName: string = Bun.env.COUCHBASE_COLLECTION!;
+
+    if (!clusterConnStr || !username || !password || !bucketName || !scopeName || !collectionName) {
+      throw createError('CONFIG_ERROR', "Missing required Couchbase configuration", {
+        missing: [
+          !clusterConnStr && 'COUCHBASE_URL',
+          !username && 'COUCHBASE_USERNAME',
+          !password && 'COUCHBASE_PASSWORD',
+          !bucketName && 'COUCHBASE_BUCKET',
+          !scopeName && 'COUCHBASE_SCOPE',
+          !collectionName && 'COUCHBASE_COLLECTION'
+        ].filter(Boolean)
+      });
+    }
 
     logger.info(`Configuring connection with the following default connection details:
                     URL: ${clusterConnStr},
@@ -63,8 +77,10 @@ export async function clusterConn(): Promise<capellaConn> {
         CouchbaseError,
       },
     };
-  } catch (error) {
+  } catch (error: any) {
     logger.error("Couchbase connection failed:", error);
-    throw error;
+    throw createError('DB_ERROR', "Failed to establish Couchbase connection", {
+      error: error.message
+    });
   }
 }
