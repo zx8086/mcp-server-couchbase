@@ -7,17 +7,18 @@ globalThis.CN_ROOT = globalThis.CN_ROOT || path.resolve(__dirname, "..");
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import { createLogger, format, transports } from "winston";
 import { getCluster } from "./lib/clusterProvider";
-import { config } from 'dotenv';
+import type { capellaConn } from "./lib/couchbaseConnector";
+import { createServer } from "http";
+import { IncomingMessage, ServerResponse } from "http";
 
-config();
-
-const MCP_SERVER_NAME = "ouchbase-capella-mcp";
-const TRANSPORT_MODE = process.env.MCP_TRANSPORT || "stdio";
-const SERVER_PORT = parseInt(process.env.FASTMCP_PORT || "8080");
-const READ_ONLY_QUERY_MODE = process.env.READ_ONLY_QUERY_MODE !== "false";
+const MCP_SERVER_NAME = Bun.env.MCP_SERVER_NAME || "couchbase-mcp-server";
+const TRANSPORT_MODE = Bun.env.MCP_TRANSPORT;
+const SERVER_PORT = parseInt(Bun.env.FASTMCP_PORT || "8080");
+const READ_ONLY_QUERY_MODE = Bun.env.READ_ONLY_QUERY_MODE !== "false";
 
 const logger = createLogger({
     level: 'info',
@@ -38,34 +39,137 @@ class AppContext {
 
 // SQL++ Parser interface for validating queries
 interface SQLPPParser {
-    parse(query: string): any;
-    modifiesData(parsedQuery: any): boolean;
-    modifiesStructure(parsedQuery: any): boolean;
+    parse(query: string): ASTNode;
+    modifiesData(parsedQuery: ASTNode): boolean;
+    modifiesStructure(parsedQuery: ASTNode): boolean;
 }
 
-// Basic SQL++ Parser implementation
+// AST Node types for SQL++ parsing
+interface ASTNode {
+    type: string;
+    value?: string;
+    children?: ASTNode[];
+    start?: number;
+    end?: number;
+}
+
+// Robust SQL++ Parser implementation
 class SQLPPParserImpl implements SQLPPParser {
-    parse(query: string): any {
-        // This is a placeholder - in a real implementation, this would parse the SQL++ query
-        return { query };
+    private readonly dataModificationKeywords = new Set([
+        'INSERT', 'UPDATE', 'DELETE', 'UPSERT', 'MERGE'
+    ]);
+
+    private readonly structureModificationKeywords = new Set([
+        'CREATE', 'DROP', 'ALTER', 'GRANT', 'REVOKE'
+    ]);
+
+    parse(query: string): ASTNode {
+        // Remove comments first
+        const cleanedQuery = this.removeComments(query);
+        
+        // Split into tokens while preserving string literals
+        const tokens = this.tokenize(cleanedQuery);
+        
+        // Build AST
+        return this.buildAST(tokens);
     }
 
-    modifiesData(parsedQuery: any): boolean {
-        // This is a placeholder - in a real implementation, this would analyze the query
-        const query = parsedQuery.query.toLowerCase();
-        return query.includes('insert') ||
-            query.includes('update') ||
-            query.includes('delete') ||
-            query.includes('upsert') ||
-            query.includes('merge');
+    private removeComments(query: string): string {
+        // Remove single line comments
+        let cleaned = query.replace(/--.*$/gm, '');
+        // Remove multi-line comments
+        cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+        return cleaned.trim();
     }
 
-    modifiesStructure(parsedQuery: any): boolean {
-        // This is a placeholder - in a real implementation, this would analyze the query
-        const query = parsedQuery.query.toLowerCase();
-        return query.includes('create') ||
-            query.includes('drop') ||
-            query.includes('alter');
+    private tokenize(query: string): string[] {
+        const tokens: string[] = [];
+        let currentToken = '';
+        let inString = false;
+        let stringDelimiter = '';
+
+        for (let i = 0; i < query.length; i++) {
+            const char = query[i] as string;
+            
+            if (inString) {
+                currentToken += char;
+                if (char === stringDelimiter && query[i-1] !== '\\') {
+                    inString = false;
+                    tokens.push(currentToken);
+                    currentToken = '';
+                }
+            } else {
+                if (char === '"' || char === "'") {
+                    inString = true;
+                    stringDelimiter = char;
+                    currentToken += char;
+                } else if (/\s/.test(char)) {
+                    if (currentToken) {
+                        tokens.push(currentToken);
+                        currentToken = '';
+                    }
+                } else {
+                    currentToken += char;
+                }
+            }
+        }
+
+        if (currentToken) {
+            tokens.push(currentToken);
+        }
+
+        return tokens;
+    }
+
+    private buildAST(tokens: string[]): ASTNode {
+        const root: ASTNode = { type: 'ROOT', children: [] };
+        let currentNode = root;
+        let currentStatement: ASTNode | null = null;
+
+        for (let i = 0; i < tokens.length; i++) {
+            const token = tokens[i]?.toUpperCase() ?? '';
+            
+            if (this.isStatementStart(token)) {
+                if (currentStatement) {
+                    if (currentNode.children) {
+                        currentNode.children.push(currentStatement);
+                    }
+                }
+                currentStatement = { type: token, children: [] };
+            } else if (currentStatement) {
+                if (currentStatement.children) {
+                    currentStatement.children.push({ type: 'TOKEN', value: tokens[i] });
+                }
+            }
+        }
+
+        if (currentStatement && currentNode.children) {
+            currentNode.children.push(currentStatement);
+        }
+
+        return root;
+    }
+
+    private isStatementStart(token: string): boolean {
+        return this.dataModificationKeywords.has(token) || 
+               this.structureModificationKeywords.has(token) ||
+               token === 'SELECT';
+    }
+
+    modifiesData(parsedQuery: ASTNode): boolean {
+        if (!parsedQuery.children) return false;
+        
+        return parsedQuery.children.some(child => 
+            this.dataModificationKeywords.has(child.type)
+        );
+    }
+
+    modifiesStructure(parsedQuery: ASTNode): boolean {
+        if (!parsedQuery.children) return false;
+        
+        return parsedQuery.children.some(child => 
+            this.structureModificationKeywords.has(child.type)
+        );
     }
 }
 
@@ -168,22 +272,6 @@ async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: string): 
 
 // --- Tool Handlers as Named Functions ---
 
-function withBucket(handler) {
-    return async (ctx, ...args) => {
-        if (!ctx.lifespanContext) ctx.lifespanContext = {};
-        if (!ctx.lifespanContext.bucket) {
-            ctx.lifespanContext.bucket = globalThis.capellaConn.defaultBucket;
-            ctx.lifespanContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
-        }
-        // Try to extract arguments from ctx if args[0] is not the arguments object
-        let params = args[0];
-        if (!params || !params.scope_name) {
-            params = ctx.arguments || ctx.params?.arguments || {};
-        }
-        return handler(ctx, params);
-    };
-}
-
 export async function getScopesAndCollectionsHandler(ctx: any) {
     const bucket = ctx.lifespanContext.bucket;
 
@@ -197,7 +285,7 @@ export async function getScopesAndCollectionsHandler(ctx: any) {
         const scopes = await collectionManager.getAllScopes();
 
         for (const scope of scopes) {
-            const collectionNames = scope.collections.map(c => c.name);
+            const collectionNames = scope.collections.map((c: Collection) => c.name);
             scopesCollections[scope.name] = collectionNames;
         }
 
@@ -347,7 +435,7 @@ server.tool(
         const collectionManager = bucket.collections();
         const scopes = await collectionManager.getAllScopes();
         for (const scope of scopes) {
-            const collectionNames = scope.collections.map(c => c.name);
+            const collectionNames = scope.collections.map((c: Collection) => c.name);
             scopesCollections[scope.name] = collectionNames;
         }
         return {
@@ -539,20 +627,20 @@ async function main() {
         //     // await sleep(15000);
 
             // 3. Upsert a test document
-            let upsertSuccess = false;
-            try {
-                const upsertResult = await upsertDocumentByIdHandler(testCtx, {
-                    scope_name: "_default",
-                    collection_name: "_default",
-                    document_id: "startup_test_doc",
-                    document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
-                });
-                console.log("Startup test: Upsert document:", upsertResult.content[0].text);
-                upsertSuccess = true;
-            } catch (err) {
-                console.error("Startup test: Upsert failed:", err);
-            }
-            await sleep(15000);
+            // let upsertSuccess = false;
+            // try {
+            //     const upsertResult = await upsertDocumentByIdHandler(testCtx, {
+            //         scope_name: "_default",
+            //         collection_name: "_default",
+            //         document_id: "startup_test_doc",
+            //         document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
+            //     });
+            //     console.log("Startup test: Upsert document:", upsertResult.content[0].text);
+            //     upsertSuccess = true;
+            // } catch (err) {
+            //     console.error("Startup test: Upsert failed:", err);
+            // }
+            // await sleep(15000);
 
         //     // 4. Get the test document (only if upsert succeeded)
         //     if (upsertSuccess) {
@@ -590,11 +678,9 @@ async function main() {
         // }
 
         // Create appropriate transport based on configuration
-        let transport;
+        let transport: Transport;
         if (TRANSPORT_MODE === "sse") {
-            transport = new SSEServerTransport({
-                port: SERVER_PORT
-            });
+            transport = new SSEServerTransport(SERVER_PORT, "/sse");
             logger.info(`Using SSE transport on port ${SERVER_PORT}`);
         } else {
             transport = new StdioServerTransport();
@@ -621,4 +707,17 @@ main().catch((error) => {
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+interface Collection {
+    name: string;
+}
+
+interface Scope {
+    name: string;
+    collections: Collection[];
+}
+
+declare global {
+    var capellaConn: capellaConn | null;
 }
