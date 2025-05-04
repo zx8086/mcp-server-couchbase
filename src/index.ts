@@ -23,6 +23,7 @@ import type { AppContext, ServerSettings } from "./types";
 import { AppError, DatabaseError } from "./lib/errors";
 import { config } from "./config";
 import { logger } from "./lib/logger";
+import { runSqlPlusPlusQuery } from "../lib/runSqlPlusPlusQuery";
 
 const MCP_SERVER_NAME = Bun.env.MCP_SERVER_NAME || "couchbase-mcp-server";
 const TRANSPORT_MODE = Bun.env.MCP_TRANSPORT;
@@ -407,10 +408,7 @@ export async function runSqlPlusPlusQueryHandler(ctx: any, params: any) {
 // --- Register tools using the named handlers ---
 
 function registerTools(server: McpServer) {
-    scopesAndCollectionsTool.register(server);
-    schemaTool.register(server);
-    documentOperationsTool.register(server);
-    sqlPlusPlusTool.register(server);
+    tools.forEach(tool => tool(server));
 }
 
 async function createServer(capellaConn: Awaited<ReturnType<typeof getCluster>>) {
@@ -456,7 +454,7 @@ async function createServer(capellaConn: Awaited<ReturnType<typeof getCluster>>)
     });
 
     // Register all tools
-    tools.forEach(tool => tool(server));
+    registerTools(server);
 
     return server;
 }

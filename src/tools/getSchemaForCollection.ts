@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runSqlPlusPlusQuery } from "../index";
+import { runSqlPlusPlusQuery } from "../lib/runSqlPlusPlusQuery";
 
 const handler = async (ctx: any, params: any) => {
     const { scope_name, collection_name } = params || {};
