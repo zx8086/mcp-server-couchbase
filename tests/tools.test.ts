@@ -227,6 +227,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       // Test document content
       const testDoc = { 
         text: "Couchbase Capella MCP Server", 
+        quote: "You can't trust quotes from the internet",
+        author: "Abraham Lincoln",
         at: new Date().toISOString() 
       };
       
@@ -336,8 +338,3 @@ describe("Couchbase MCP Server Tool Tests", () => {
     });
   });
 }); 
-
-
-/* 
-"You can't trust quotes from the internet" -Abraham Lincoln
-*/

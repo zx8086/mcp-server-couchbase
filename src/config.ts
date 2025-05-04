@@ -1,6 +1,7 @@
 // src/config.ts
 
 import path from "path";
+import { isTruthy } from "./lib/constants";
 
 export const config = {
     server: {
@@ -8,7 +9,7 @@ export const config = {
         version: "1.0.0",
         port: parseInt(Bun.env.FASTMCP_PORT || "8080"),
         transportMode: Bun.env.MCP_TRANSPORT || "stdio",
-        readOnlyQueryMode: Bun.env.READ_ONLY_QUERY_MODE !== "false"
+        readOnlyQueryMode: isTruthy(Bun.env.READ_ONLY_QUERY_MODE)
     },
     log: {
         level: Bun.env.LOG_LEVEL || "info"
