@@ -14,15 +14,14 @@
     "start": "bun run dist/index.js --transport stdio",
     "start:sse": "bun run dist/index.js --transport sse",
     "dev": "bun run src/index.ts --transport stdio",
-    "dev:sse": "bun run src/index.ts --transport sse",
-    "test": "bun test"
+    "dev:sse": "bun run src/index.ts --transport sse"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",
     "couchbase": "^4.4.5",
     "dotenv": "^16.5.0",
     "winston": "^3.17.0",
-    "zod": "^3.22.4"
+    "zod": "^3.24.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

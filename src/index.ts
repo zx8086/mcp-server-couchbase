@@ -1,6 +1,8 @@
 /* src/index.ts */
 
-import path from "path";
+// Import global setup first
+import './set-global';
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
@@ -14,7 +16,6 @@ import { logger } from "./lib/logger";
 
 // Add global type declaration for capellaConn
 declare global {
-    // eslint-disable-next-line no-var
     var capellaConn: capellaConn | null;
 }
 

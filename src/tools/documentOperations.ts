@@ -4,89 +4,69 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { AppError, DocumentNotFoundError, DatabaseError, createError } from "../lib/errors";
+import { withErrorHandling } from "../lib/errorUtils";
 
-export const getDocumentByIdHandler = async (params: any, bucket: Bucket) => {
+const getDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;
     logger.info(`getDocumentHandler called with scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
     if (!scope_name || !collection_name || !document_id) {
         throw new Error(`Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
     }
     if (!bucket) throw new Error("Bucket is not initialized");
-    try {
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        const result = await collection.get(document_id);
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
-                }
-            ]
-        };
-    } catch (error: any) {
-        if (error.name === 'DocumentNotFoundError') {
-            throw new DocumentNotFoundError(document_id);
-        }
-        throw createError('DB_ERROR', `Error getting document ${document_id}`, {
-            error: error.message,
-            documentId: document_id
-        });
-    }
+    
+    const collection = bucket.scope(scope_name).collection(collection_name);
+    const result = await collection.get(document_id);
+    return {
+        content: [
+            {
+                type: "text" as const,
+                text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
+            }
+        ]
+    };
 };
 
-export const upsertDocumentByIdHandler = async (params: any, bucket: Bucket) => {
+const upsertDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id, document_content } = params || {};
     if (!scope_name || !collection_name || !document_id || !document_content) {
         throw new Error("Missing required parameters: scope_name, collection_name, document_id, or document_content");
     }
     if (!bucket) throw new Error("Bucket is not initialized");
-    try {
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        await collection.upsert(document_id, document_content);
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
-                }
-            ]
-        };
-    } catch (error: any) {
-        throw createError('DB_ERROR', `Error upserting document ${document_id}`, {
-            error: error.message,
-            documentId: document_id
-        });
-    }
+    
+    const collection = bucket.scope(scope_name).collection(collection_name);
+    await collection.upsert(document_id, document_content);
+    return {
+        content: [
+            {
+                type: "text" as const,
+                text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
+            }
+        ]
+    };
 };
 
-export const deleteDocumentByIdHandler = async (params: any, bucket: Bucket) => {
+const deleteDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params || {};
     if (!scope_name || !collection_name || !document_id) {
         throw new Error("Missing required parameters: scope_name, collection_name, or document_id");
     }
     if (!bucket) throw new Error("Bucket is not initialized");
-    try {
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        await collection.remove(document_id);
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
-                }
-            ]
-        };
-    } catch (error: any) {
-        if (error.name === 'DocumentNotFoundError') {
-            throw new DocumentNotFoundError(document_id);
-        }
-        throw createError('DB_ERROR', `Error deleting document ${document_id}`, {
-            error: error.message,
-            documentId: document_id
-        });
-    }
+    
+    const collection = bucket.scope(scope_name).collection(collection_name);
+    await collection.remove(document_id);
+    return {
+        content: [
+            {
+                type: "text" as const,
+                text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
+            }
+        ]
+    };
 };
+
+export const getDocumentByIdHandler = withErrorHandling(getDocumentById, 'DB_ERROR', 'getting document');
+export const upsertDocumentByIdHandler = withErrorHandling(upsertDocumentById, 'DB_ERROR', 'upserting document');
+export const deleteDocumentByIdHandler = withErrorHandling(deleteDocumentById, 'DB_ERROR', 'deleting document');
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
