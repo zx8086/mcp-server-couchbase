@@ -15,27 +15,7 @@ import {
   DocumentNotFoundError,
   CouchbaseError,
 } from "couchbase";
-
-interface QueryableCluster extends Cluster {
-  query<TRow = any>(
-    statement: string,
-    options?: QueryOptions,
-  ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData>;
-}
-
-export interface capellaConn {
-  cluster: QueryableCluster;
-  bucket: (name: string) => Bucket;
-  scope: (bucket: string, name: string) => Scope;
-  collection: (bucket: string, scope: string, name: string) => Collection;
-  defaultBucket: Bucket;
-  defaultScope: Scope;
-  defaultCollection: Collection;
-  errors: {
-    DocumentNotFoundError: typeof DocumentNotFoundError;
-    CouchbaseError: typeof CouchbaseError;
-  };
-}
+import type { QueryableCluster, capellaConn } from "../types";
 
 export async function clusterConn(): Promise<capellaConn> {
   console.error("Attempting to connect to Couchbase...");

@@ -11,7 +11,7 @@ import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import { createLogger, format, transports } from "winston";
 import { getCluster } from "./lib/clusterProvider";
-import type { capellaConn } from "./lib/couchbaseConnector";
+import type { capellaConn, SQLPPParser, ASTNode } from "./types";
 import { createServer } from "http";
 import { IncomingMessage, ServerResponse } from "http";
 
@@ -35,22 +35,6 @@ const logger = createLogger({
 class AppContext {
     capellaConn: Awaited<ReturnType<typeof getCluster>> | null = null;
     readOnlyQueryMode: boolean = true;
-}
-
-// SQL++ Parser interface for validating queries
-interface SQLPPParser {
-    parse(query: string): ASTNode;
-    modifiesData(parsedQuery: ASTNode): boolean;
-    modifiesStructure(parsedQuery: ASTNode): boolean;
-}
-
-// AST Node types for SQL++ parsing
-interface ASTNode {
-    type: string;
-    value?: string;
-    children?: ASTNode[];
-    start?: number;
-    end?: number;
 }
 
 // Robust SQL++ Parser implementation
@@ -430,6 +414,9 @@ server.tool(
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
         }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
+        }
         const bucket = globalThis.capellaConn.defaultBucket;
         const scopesCollections: Record<string, string[]> = {};
         const collectionManager = bucket.collections();
@@ -459,6 +446,9 @@ server.tool(
     async ({ scope_name, collection_name }) => {
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
+        }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
         }
         const bucket = globalThis.capellaConn.defaultBucket;
         const query = `INFER ${collection_name}`;
@@ -491,6 +481,9 @@ server.tool(
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
         }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
+        }
         const bucket = globalThis.capellaConn.defaultBucket;
         const collection = bucket.scope(scope_name).collection(collection_name);
         const result = await collection.get(document_id);
@@ -518,6 +511,9 @@ server.tool(
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
         }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
+        }
         const bucket = globalThis.capellaConn.defaultBucket;
         const collection = bucket.scope(scope_name).collection(collection_name);
         await collection.upsert(document_id, document_content);
@@ -544,6 +540,9 @@ server.tool(
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
         }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
+        }
         const bucket = globalThis.capellaConn.defaultBucket;
         const collection = bucket.scope(scope_name).collection(collection_name);
         await collection.remove(document_id);
@@ -568,6 +567,9 @@ server.tool(
     async ({ scope_name, query }) => {
         if (!globalThis.capellaConn) {
             globalThis.capellaConn = await getCluster();
+        }
+        if (!globalThis.capellaConn) {
+            throw new Error("Failed to establish Couchbase connection");
         }
         const bucket = globalThis.capellaConn.defaultBucket;
         const scope = bucket.scope(scope_name);
