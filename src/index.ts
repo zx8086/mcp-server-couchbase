@@ -12,29 +12,29 @@ import { z } from "zod";
 import { createLogger, format, transports } from "winston";
 import { getCluster } from "./lib/clusterProvider";
 import type { capellaConn, SQLPPParser, ASTNode } from "./types";
-import { createServer } from "http";
+import { createServer as createHttpServer } from "http";
 import { IncomingMessage, ServerResponse } from "http";
+import * as scopesAndCollectionsTool from './tools/getScopesAndCollections';
+import * as schemaTool from './tools/getSchemaForCollection';
+import * as documentOperationsTool from './tools/documentOperations';
+import * as sqlPlusPlusTool from './tools/runSqlPlusPlusQuery';
+import tools from "./tools";
+import type { AppContext, ServerSettings } from "./types";
+import { AppError, DatabaseError } from "./lib/errors";
+import { config } from "./config";
+import { logger } from "./lib/logger";
 
 const MCP_SERVER_NAME = Bun.env.MCP_SERVER_NAME || "couchbase-mcp-server";
 const TRANSPORT_MODE = Bun.env.MCP_TRANSPORT;
 const SERVER_PORT = parseInt(Bun.env.FASTMCP_PORT || "8080");
 const READ_ONLY_QUERY_MODE = Bun.env.READ_ONLY_QUERY_MODE !== "false";
 
-const logger = createLogger({
-    level: 'info',
-    format: format.combine(
-        format.timestamp(),
-        format.printf(({ level, message, timestamp }) => {
-            return `${timestamp} - ${MCP_SERVER_NAME} - ${level}: ${message}`;
-        })
-    ),
-    transports: [new transports.Console({ stderrLevels: ['info', 'warn', 'error', 'debug', 'verbose', 'silly'] })]
-});
-
 // Application context class
-class AppContext {
+class AppContextImpl implements AppContext {
     capellaConn: Awaited<ReturnType<typeof getCluster>> | null = null;
-    readOnlyQueryMode: boolean = true;
+    readOnlyQueryMode: boolean = config.server.readOnlyQueryMode;
+    cluster: Awaited<ReturnType<typeof getCluster>> | null = null;
+    bucket: Awaited<ReturnType<typeof getCluster>>['defaultBucket'] | null = null;
 }
 
 // Robust SQL++ Parser implementation
@@ -162,8 +162,8 @@ const sqlppParser: SQLPPParser = new SQLPPParserImpl();
 
 // Create MCP server with capabilities
 const server = new McpServer({
-    name: MCP_SERVER_NAME,
-    version: "1.0.0",
+    name: config.server.name,
+    version: config.server.version,
     capabilities: {
         resources: {},
         tools: {
@@ -406,284 +406,77 @@ export async function runSqlPlusPlusQueryHandler(ctx: any, params: any) {
 
 // --- Register tools using the named handlers ---
 
-server.tool(
-    "get_scopes_and_collections_in_bucket",
-    "Get the names of all scopes and collections in the bucket.",
-    {},
-    async () => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
-        }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const scopesCollections: Record<string, string[]> = {};
-        const collectionManager = bucket.collections();
-        const scopes = await collectionManager.getAllScopes();
-        for (const scope of scopes) {
-            const collectionNames = scope.collections.map((c: Collection) => c.name);
-            scopesCollections[scope.name] = collectionNames;
-        }
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Available scopes and collections in bucket:\n${JSON.stringify(scopesCollections, null, 2)}`
-                }
-            ]
-        };
-    }
-);
+function registerTools(server: McpServer) {
+    scopesAndCollectionsTool.register(server);
+    schemaTool.register(server);
+    documentOperationsTool.register(server);
+    sqlPlusPlusTool.register(server);
+}
 
-server.tool(
-    "get_schema_for_collection",
-    "Get the schema for a collection in the specified scope.",
-    {
-        scope_name: z.string().describe("Name of the scope"),
-        collection_name: z.string().describe("Name of the collection")
-    },
-    async ({ scope_name, collection_name }) => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
+async function createServer(capellaConn: Awaited<ReturnType<typeof getCluster>>) {
+    const server = new McpServer({
+        name: config.server.name,
+        version: config.server.version,
+        capabilities: {
+            resources: {},
+            tools: {
+                systemPrompt: `I am a Couchbase server interface that helps you interact with Couchbase databases.
+                I can help you:
+                1. Get information about scopes and collections
+                2. Retrieve documents by ID from specific scopes and collections
+                3. Insert or update documents in scopes and collections
+                4. Delete documents by ID
+                5. Run SQL++ queries on a scope
+                
+                When using me, please provide specific details about the scope, collection, and operations you want to perform.`,
+                examples: [
+                    {
+                        input: "Show me all scopes and collections in my bucket",
+                        output: {
+                            type: "tool_call",
+                            name: "get_scopes_and_collections_in_bucket",
+                            parameters: {}
+                        }
+                    },
+                    {
+                        input: "Get document with ID 'user_123' from the 'users' collection in 'main' scope",
+                        output: {
+                            type: "tool_call",
+                            name: "get_document_by_id",
+                            parameters: {
+                                scope_name: "main",
+                                collection_name: "users",
+                                document_id: "user_123"
+                            }
+                        }
+                    }
+                ]
+            }
         }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const query = `INFER ${collection_name}`;
-        const scope = bucket.scope(scope_name);
-        const result = await scope.query(query);
-        const rows: any[] = [];
-        for await (const row of result.rows) {
-            rows.push(row);
-        }
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Schema for collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(rows, null, 2)}`
-                }
-            ]
-        };
-    }
-);
+    });
 
-server.tool(
-    "get_document_by_id",
-    "Get a document by its ID from the specified scope and collection.",
-    {
-        scope_name: z.string().describe("Name of the scope"),
-        collection_name: z.string().describe("Name of the collection"),
-        document_id: z.string().describe("ID of the document to retrieve")
-    },
-    async ({ scope_name, collection_name, document_id }) => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
-        }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        const result = await collection.get(document_id);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
-                }
-            ]
-        };
-    }
-);
+    // Register all tools
+    tools.forEach(tool => tool(server));
 
-server.tool(
-    "upsert_document_by_id",
-    "Insert or update a document by its ID.",
-    {
-        scope_name: z.string().describe("Name of the scope"),
-        collection_name: z.string().describe("Name of the collection"),
-        document_id: z.string().describe("ID of the document to upsert"),
-        document_content: z.record(z.any()).describe("Content of the document")
-    },
-    async ({ scope_name, collection_name, document_id, document_content }) => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
-        }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        await collection.upsert(document_id, document_content);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
-                }
-            ]
-        };
-    }
-);
-
-server.tool(
-    "delete_document_by_id",
-    "Delete a document by its ID.",
-    {
-        scope_name: z.string().describe("Name of the scope"),
-        collection_name: z.string().describe("Name of the collection"),
-        document_id: z.string().describe("ID of the document to delete")
-    },
-    async ({ scope_name, collection_name, document_id }) => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
-        }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        await collection.remove(document_id);
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
-                }
-            ]
-        };
-    }
-);
-
-server.tool(
-    "run_sql_plus_plus_query",
-    "Run a SQL++ query on a scope and return the results.",
-    {
-        scope_name: z.string().describe("Name of the scope"),
-        query: z.string().describe("SQL++ query to execute")
-    },
-    async ({ scope_name, query }) => {
-        if (!globalThis.capellaConn) {
-            globalThis.capellaConn = await getCluster();
-        }
-        if (!globalThis.capellaConn) {
-            throw new Error("Failed to establish Couchbase connection");
-        }
-        const bucket = globalThis.capellaConn.defaultBucket;
-        const scope = bucket.scope(scope_name);
-        const result = await scope.query(query);
-        const rows: any[] = [];
-        for await (const row of result.rows) {
-            rows.push(row);
-        }
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: `Query results from scope "${scope_name}":\n${JSON.stringify(rows, null, 2)}`
-                }
-            ]
-        };
-    }
-);
+    return server;
+}
 
 // Main function to start the server
 async function main() {
     try {
         logger.info("Starting Couchbase MCP Server...");
 
-        // Initialize Couchbase connection using the new structure
+        // Initialize database connection
         const capellaConn = await getCluster();
 
-        // Make the connection available globally
-        globalThis.capellaConn = capellaConn;
+        // Create and configure server with the connection
+        const server = await createServer(capellaConn);
 
-        // Create application context once
-        const appContext = new AppContext();
-        appContext.capellaConn = capellaConn;
-        appContext.readOnlyQueryMode = READ_ONLY_QUERY_MODE;
-
-        // Simulate a context object as expected by your tool handler
-        const testCtx = {
-            lifespanContext: {
-                bucket: capellaConn.defaultBucket,
-                readOnlyQueryMode: READ_ONLY_QUERY_MODE,
-            }
-        };
-
-        // --- Startup tests for each tool ---
-        // try {
-        //     // 1. List all scopes and collections
-        //     const scopesResult = await getScopesAndCollectionsHandler(testCtx);
-        //     console.log("Startup test: List of scopes and collections:", scopesResult.content[0].text);
-        //     await sleep(15000);
-
-        //     // // 2. Get schema for _default._default
-        //     // const schemaResult = await getSchemaForCollectionHandler(testCtx, {
-        //     //     scope_name: "_default",
-        //     //     collection_name: "_default"
-        //     // });
-        //     // console.log("Startup test: Schema for _default._default:", schemaResult.content[0].text);
-        //     // await sleep(15000);
-
-            // 3. Upsert a test document
-            // let upsertSuccess = false;
-            // try {
-            //     const upsertResult = await upsertDocumentByIdHandler(testCtx, {
-            //         scope_name: "_default",
-            //         collection_name: "_default",
-            //         document_id: "startup_test_doc",
-            //         document_content: { text: "Couchbase Capella MCP Server", at: new Date().toISOString() }
-            //     });
-            //     console.log("Startup test: Upsert document:", upsertResult.content[0].text);
-            //     upsertSuccess = true;
-            // } catch (err) {
-            //     console.error("Startup test: Upsert failed:", err);
-            // }
-            // await sleep(15000);
-
-        //     // 4. Get the test document (only if upsert succeeded)
-        //     if (upsertSuccess) {
-        //         try {
-        //             const getDocResult = await getDocumentByIdHandler(testCtx, {
-        //                 scope_name: "_default",
-        //                 collection_name: "_default",
-        //                 document_id: "startup_test_doc"
-        //             });
-        //             console.log("Startup test: Get document:", getDocResult.content[0].text);
-        //         } catch (err) {
-        //             console.error("Startup test: Get document failed:", err);
-        //         }
-        //         await sleep(15000);
-        //     }
-
-        //     // 5. Run a simple SQL++ query
-        //     const sqlResult = await runSqlPlusPlusQueryHandler(testCtx, {
-        //         scope_name: "_default",
-        //         query: "SELECT META().id, * FROM `_default` LIMIT 1"
-        //     });
-        //     console.log("Startup test: SQL++ query result:", sqlResult.content[0].text);
-        //     await sleep(15000);
-
-        //     // 6. Delete the test document
-        //     const deleteResult = await deleteDocumentByIdHandler(testCtx, {
-        //         scope_name: "_default",
-        //         collection_name: "_default",
-        //         document_id: "startup_test_doc"
-        //     });
-        //     console.log("Startup test: Delete document:", deleteResult.content[0].text);
-
-        // } catch (err) {
-        //     console.error("Startup test failed:", err);
-        // }
-
-        // Create appropriate transport based on configuration
+        // Configure transport
         let transport: Transport;
-        if (TRANSPORT_MODE === "sse") {
-            transport = new SSEServerTransport(SERVER_PORT, "/sse");
-            logger.info(`Using SSE transport on port ${SERVER_PORT}`);
+        if (config.server.transportMode === "sse") {
+            transport = new SSEServerTransport(config.server.port, "/sse");
+            logger.info(`Using SSE transport on port ${config.server.port}`);
         } else {
             transport = new StdioServerTransport();
             logger.info("Using stdio transport");
@@ -691,19 +484,21 @@ async function main() {
 
         // Connect to transport
         await server.connect(transport);
-        logger.info(`Couchbase MCP Server running with ${TRANSPORT_MODE} transport`);
+        logger.info(`Couchbase MCP Server running with ${config.server.transportMode} transport`);
 
     } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Error starting server: ${errorMsg}`);
+        if (error instanceof AppError) {
+            logger.error(`Error starting server: ${error.message} (${error.code})`);
+        } else {
+            logger.error(`Error starting server: ${error instanceof Error ? error.message : String(error)}`);
+        }
         process.exit(1);
     }
 }
 
 // Start the server
 main().catch((error) => {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    logger.error(`Fatal error in main(): ${errorMsg}`);
+    logger.error(`Fatal error in main(): ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
 });
 

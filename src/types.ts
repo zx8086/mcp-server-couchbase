@@ -9,7 +9,7 @@ export interface AppContext {
   cluster: Cluster | null;
   bucket: Bucket | null;
   readOnlyQueryMode: boolean;
-  capellaConn: capellaConn | null;
+  capellaConn: Cluster | null;
 }
 
 /**
@@ -22,6 +22,10 @@ export interface ServerSettings {
   bucketName: string;
   readOnlyQueryMode: boolean;
   transport: string;
+  name: string;
+  version: string;
+  port: number;
+  transportMode: 'stdio' | 'sse';
 }
 
 /**
@@ -129,3 +133,25 @@ export interface ScopeInfo {
  * Scopes and collections mapping
  */
 export type ScopesCollectionsMap = Record<string, string[]>;
+
+export interface ToolContext {
+  lifespanContext: {
+    bucket: Bucket;
+    readOnlyQueryMode: boolean;
+  };
+}
+
+export interface ToolParams {
+  scope_name: string;
+  collection_name?: string;
+  document_id?: string;
+  document_content?: DocumentContent;
+  query?: string;
+}
+
+export interface ToolResponse {
+  content: Array<{
+    type: string;
+    text: string;
+  }>;
+}
