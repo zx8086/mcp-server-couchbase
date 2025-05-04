@@ -1,19 +1,24 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runSqlPlusPlusQuery } from "../lib/runSqlPlusPlusQuery";
+import type { Bucket } from "couchbase";
 
-const handler = async (ctx: any, params: any) => {
+export const runSqlPlusPlusQueryHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, query } = params || {};
     if (!scope_name || !query) {
         throw new Error("Missing required parameters: scope_name or query");
     }
     try {
-        const results = await runSqlPlusPlusQuery(ctx, scope_name, query);
+        const scope = bucket.scope(scope_name);
+        const result = await scope.query(query);
+        const rows: any[] = [];
+        for await (const row of result.rows) {
+            rows.push(row);
+        }
         return {
             content: [
                 {
-                    type: "text",
-                    text: `Query results from scope "${scope_name}":\n${JSON.stringify(results, null, 2)}`
+                    type: "text" as const,
+                    text: `Query results from scope \"${scope_name}\":\n${JSON.stringify(rows, null, 2)}`
                 }
             ]
         };
@@ -23,7 +28,7 @@ const handler = async (ctx: any, params: any) => {
     }
 };
 
-export default (server: McpServer) => {
+export default (server: McpServer, bucket: Bucket) => {
     server.tool(
         "run_sql_plus_plus_query",
         "Run a SQL++ query on a scope and return the results.",
@@ -31,6 +36,6 @@ export default (server: McpServer) => {
             scope_name: z.string().describe("Name of the scope"),
             query: z.string().describe("SQL++ query to execute")
         },
-        handler
+        async (params: any) => runSqlPlusPlusQueryHandler(params, bucket)
     );
 };

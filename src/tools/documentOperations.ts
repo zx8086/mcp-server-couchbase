@@ -1,16 +1,14 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createLogger } from "winston";
+import { logger } from "../lib/logger";
+import type { Bucket } from "couchbase";
 
-const logger = createLogger();
-
-const getDocumentHandler = async (ctx: any, params: any = {}) => {
+export const getDocumentByIdHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;
     logger.info(`getDocumentHandler called with scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
     if (!scope_name || !collection_name || !document_id) {
         throw new Error(`Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
     }
-    const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
         const collection = bucket.scope(scope_name).collection(collection_name);
@@ -18,7 +16,7 @@ const getDocumentHandler = async (ctx: any, params: any = {}) => {
         return {
             content: [
                 {
-                    type: "text",
+                    type: "text" as const,
                     text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
                 }
             ]
@@ -29,12 +27,11 @@ const getDocumentHandler = async (ctx: any, params: any = {}) => {
     }
 };
 
-const upsertDocumentHandler = async (ctx: any, params: any) => {
+export const upsertDocumentByIdHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id, document_content } = params || {};
     if (!scope_name || !collection_name || !document_id || !document_content) {
         throw new Error("Missing required parameters: scope_name, collection_name, document_id, or document_content");
     }
-    const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
         const collection = bucket.scope(scope_name).collection(collection_name);
@@ -42,7 +39,7 @@ const upsertDocumentHandler = async (ctx: any, params: any) => {
         return {
             content: [
                 {
-                    type: "text",
+                    type: "text" as const,
                     text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
                 }
             ]
@@ -53,12 +50,11 @@ const upsertDocumentHandler = async (ctx: any, params: any) => {
     }
 };
 
-const deleteDocumentHandler = async (ctx: any, params: any) => {
+export const deleteDocumentByIdHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params || {};
     if (!scope_name || !collection_name || !document_id) {
         throw new Error("Missing required parameters: scope_name, collection_name, or document_id");
     }
-    const bucket = ctx.lifespanContext.bucket;
     if (!bucket) throw new Error("Bucket is not initialized");
     try {
         const collection = bucket.scope(scope_name).collection(collection_name);
@@ -66,7 +62,7 @@ const deleteDocumentHandler = async (ctx: any, params: any) => {
         return {
             content: [
                 {
-                    type: "text",
+                    type: "text" as const,
                     text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
                 }
             ]
@@ -77,7 +73,7 @@ const deleteDocumentHandler = async (ctx: any, params: any) => {
     }
 };
 
-export default (server: McpServer) => {
+export default (server: McpServer, bucket: Bucket) => {
     server.tool(
         "get_document_by_id",
         "Get a document by its ID from the specified scope and collection.",
@@ -86,7 +82,7 @@ export default (server: McpServer) => {
             collection_name: z.string().describe("Name of the collection"),
             document_id: z.string().describe("ID of the document to retrieve")
         },
-        getDocumentHandler
+        async (params: any) => getDocumentByIdHandler(params, bucket)
     );
 
     server.tool(
@@ -98,7 +94,7 @@ export default (server: McpServer) => {
             document_id: z.string().describe("ID of the document to upsert"),
             document_content: z.record(z.any()).describe("Content of the document")
         },
-        upsertDocumentHandler
+        async (params: any) => upsertDocumentByIdHandler(params, bucket)
     );
 
     server.tool(
@@ -109,6 +105,6 @@ export default (server: McpServer) => {
             collection_name: z.string().describe("Name of the collection"),
             document_id: z.string().describe("ID of the document to delete")
         },
-        deleteDocumentHandler
+        async (params: any) => deleteDocumentByIdHandler(params, bucket)
     );
 };

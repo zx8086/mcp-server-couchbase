@@ -1,7 +1,9 @@
 /* src/lib/clusterProvider.ts */
 
 // import { log, err } from "$utils/logger";
-import { clusterConn, type capellaConn } from "./couchbaseConnector";
+import { clusterConn } from "./couchbaseConnector";
+import type { capellaConn } from "../types";
+import { logger } from "./logger";
 
 let connection: capellaConn | null = null;
 
@@ -9,11 +11,11 @@ export const getCluster = async (): Promise<capellaConn> => {
   try {
     if (!connection) {
       connection = await clusterConn();
-      console.error("Connection to Couchbase established successfully.");
+      logger.info("Connection to Couchbase established successfully.");
     }
     return connection;
   } catch (error: any) {
-    console.error("Error connecting to Couchbase:", error);
+    logger.error("Error connecting to Couchbase:", error);
     throw error;
   }
 };

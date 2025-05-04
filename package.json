@@ -14,7 +14,8 @@
     "start": "bun run dist/index.js --transport stdio",
     "start:sse": "bun run dist/index.js --transport sse",
     "dev": "bun run src/index.ts --transport stdio",
-    "dev:sse": "bun run src/index.ts --transport sse"
+    "dev:sse": "bun run src/index.ts --transport sse",
+    "test": "bun test"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.0",

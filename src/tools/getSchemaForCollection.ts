@@ -1,20 +1,25 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runSqlPlusPlusQuery } from "../lib/runSqlPlusPlusQuery";
+import type { Bucket } from "couchbase";
 
-const handler = async (ctx: any, params: any) => {
+export const getSchemaForCollectionHandler = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name } = params || {};
     if (!scope_name || !collection_name) {
         throw new Error("Missing required parameters: scope_name or collection_name");
     }
     try {
         const query = `INFER ${collection_name}`;
-        const result = await runSqlPlusPlusQuery(ctx, scope_name, query);
+        const scope = bucket.scope(scope_name);
+        const result = await scope.query(query);
+        const rows: any[] = [];
+        for await (const row of result.rows) {
+            rows.push(row);
+        }
         return {
             content: [
                 {
-                    type: "text",
-                    text: `Schema for collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result, null, 2)}`
+                    type: "text" as const,
+                    text: `Schema for collection \"${collection_name}\" in scope \"${scope_name}\":\n${JSON.stringify(rows, null, 2)}`
                 }
             ]
         };
@@ -24,7 +29,7 @@ const handler = async (ctx: any, params: any) => {
     }
 };
 
-export default (server: McpServer) => {
+export default (server: McpServer, bucket: Bucket) => {
     server.tool(
         "get_schema_for_collection",
         "Get the schema for a collection in the specified scope.",
@@ -32,6 +37,6 @@ export default (server: McpServer) => {
             scope_name: z.string().describe("Name of the scope"),
             collection_name: z.string().describe("Name of the collection")
         },
-        handler
+        async (params: any) => getSchemaForCollectionHandler(params, bucket)
     );
 };
