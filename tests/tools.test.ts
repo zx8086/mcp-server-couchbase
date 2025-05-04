@@ -336,3 +336,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
     });
   });
 }); 
+
+
+/* 
+"You can't trust quotes from the internet" -Abraham Lincoln
+*/
