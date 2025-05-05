@@ -50,10 +50,10 @@ describe("Couchbase MCP Server Tool Tests", () => {
       mockServer = new MockMcpServer();
       
       // Register tools with mock server
-      getScopesAndCollections(mockServer, connection.defaultBucket);
-      getSchemaForCollection(mockServer, connection.defaultBucket);
-      documentOperations(mockServer, connection.defaultBucket);
-      runSqlPlusPlusQuery(mockServer, connection.defaultBucket);
+      getScopesAndCollections(mockServer as any, connection.defaultBucket);
+      getSchemaForCollection(mockServer as any, connection.defaultBucket);
+      documentOperations(mockServer as any, connection.defaultBucket);
+      runSqlPlusPlusQuery(mockServer as any, connection.defaultBucket);
       
       logger.info("Test environment setup complete");
     } catch (error) {

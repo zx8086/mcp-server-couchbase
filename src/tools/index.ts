@@ -1,21 +1,18 @@
 /* src/tools/index.ts */
 
-import getScopesAndCollections, { getScopesAndCollectionsHandler } from './getScopesAndCollections';
-import getSchemaForCollection, { getSchemaForCollectionHandler } from './getSchemaForCollection';
+import getScopesAndCollections from './getScopesAndCollections';
+import getSchemaForCollection from './getSchemaForCollection';
 import documentOperations, { 
     getDocumentByIdHandler,
     upsertDocumentByIdHandler,
     deleteDocumentByIdHandler
 } from './documentOperations';
-import runSqlPlusPlusQuery, { runSqlPlusPlusQueryHandler } from './runSqlPlusPlusQuery';
+import runSqlPlusPlusQuery from './runSqlPlusPlusQuery';
 
 export {
-    getScopesAndCollectionsHandler,
-    getSchemaForCollectionHandler,
     getDocumentByIdHandler,
     upsertDocumentByIdHandler,
-    deleteDocumentByIdHandler,
-    runSqlPlusPlusQueryHandler
+    deleteDocumentByIdHandler
 };
 
 export default [
