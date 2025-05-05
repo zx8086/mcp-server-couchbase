@@ -3,7 +3,6 @@
 import { createLogger, format, transports } from 'winston';
 import { config } from '../config';
 
-// Create a basic console logger that can be used before configuration is loaded
 const basicLogger = createLogger({
     level: 'info',
     format: format.combine(
@@ -21,7 +20,7 @@ export const logger = createLogger({
     format: format.combine(
         format.timestamp(),
         format.printf(({ level, message, timestamp }) => {
-            return `${timestamp} - ${config.server.name} - ${level}: ${message}`;
+            return `${timestamp} - [${config.server.name}] - ${level}: ${message}`;
         })
     ),
     transports: [new transports.Console({ stderrLevels: ['info', 'warn', 'error', 'debug', 'verbose', 'silly'] })]

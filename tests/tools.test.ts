@@ -1,4 +1,3 @@
-
 /* tests/tools.test.ts */
 
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
@@ -70,8 +69,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       if (connection && connection.defaultBucket) {
         const collection = connection.defaultBucket.scope("_default").collection("_default");
         try {
-          await collection.remove(TEST_DOC_ID);
-          logger.info(`Cleaned up test document: ${TEST_DOC_ID}`);
+          // await collection.remove(TEST_DOC_ID);
+          // logger.info(`Cleaned up test document: ${TEST_DOC_ID}`);
         } catch (error) {
           // Ignore not found errors during cleanup
           logger.info(`No test document to clean up: ${TEST_DOC_ID}`);
