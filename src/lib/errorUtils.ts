@@ -1,3 +1,5 @@
+/* src/lib/errorUtils.ts */
+
 import { AppError, DocumentNotFoundError, createError } from './errors';
 import type { Bucket } from 'couchbase';
 

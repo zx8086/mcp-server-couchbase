@@ -7,5 +7,5 @@ export type EnvTruthy = typeof ENV_TRUE[number];
 
 // Helper function to check if a value is truthy
 export function isTruthy(value: string | undefined): boolean {
-    return value ? ENV_TRUE.includes(value.toLowerCase()) : false;
+    return value ? ENV_TRUE.includes(value.toLowerCase() as EnvTruthy) : false;
 } 
