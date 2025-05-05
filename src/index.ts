@@ -38,8 +38,8 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
                 I can help you:
                 1. Get information about scopes and collections
                 2. Retrieve documents by ID from specific scopes and collections
-                3. Insert or update documents in scopes and collections
-                4. Delete documents by ID
+                3. Insert or update documents in specific scopes and collections
+                4. Delete documents by ID from specific scopes and collections
                 5. Run SQL++ queries on a scope
                 
                 When using me, please provide specific details about the scope, collection, and operations you want to perform.`,
