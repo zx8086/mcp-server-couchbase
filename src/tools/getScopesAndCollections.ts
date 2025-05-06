@@ -12,10 +12,25 @@ const getScopesAndCollectionsHandler = async (_params: {}, bucket: Bucket) => {
         scopesCollections[scope.name] = scope.collections.map(c => c.name);
     }
     
+    // Format the response as human-readable text
+    let formattedText = "Here are all the scopes and collections in the bucket:\n\n";
+    
+    Object.entries(scopesCollections).forEach(([scope, collections]) => {
+        formattedText += `📁 Scope: ${scope}\n`;
+        if (collections && collections.length > 0) {
+            collections.forEach(collection => {
+                formattedText += `  └─ 📄 Collection: ${collection}\n`;
+            });
+        } else {
+            formattedText += '  └─ (No collections)\n';
+        }
+        formattedText += '\n';
+    });
+    
     return {
         content: [{
             type: "text" as const,
-            text: JSON.stringify(scopesCollections, null, 2)
+            text: formattedText
         }]
     };
 };

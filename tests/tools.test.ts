@@ -191,13 +191,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       
       // Parse the JSON to verify structure
       const resultText = result.content[0].text;
-      const jsonStart = resultText.indexOf("{");
-      const jsonEnd = resultText.lastIndexOf("}");
-      const jsonStr = resultText.substring(jsonStart, jsonEnd + 1);
-      const scopesCollections = JSON.parse(jsonStr);
-      
-      expect(scopesCollections).toBeInstanceOf(Object);
-      expect(scopesCollections).toHaveProperty("_default");
+      logger.info("Scopes and collections response:", resultText);
+      expect(resultText).toContain("_default");
       
       logger.info("Test passed: List all scopes and collections");
     });
@@ -242,12 +237,12 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const upsertResult = await upsertHandler({
         scope_name: "_default",
         collection_name: "_default",
-        id: TEST_DOC_ID,
-        content: testDoc
+        document_id: TEST_DOC_ID,
+        document_content: testDoc
       });
       
       expect(upsertResult).toBeDefined();
-      expect(upsertResult.content[0].text).toContain("Successfully upserted document");
+      expect(upsertResult.content[0].text).toContain("✅ Document Operation Successful");
       logger.info("Test passed: Upsert document");
       
       // Wait a moment for the operation to complete
@@ -257,7 +252,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const getResult = await getHandler({
         scope_name: "_default",
         collection_name: "_default",
-        id: TEST_DOC_ID
+        document_id: TEST_DOC_ID
       });
       
       expect(getResult).toBeDefined();
@@ -265,8 +260,11 @@ describe("Couchbase MCP Server Tool Tests", () => {
       
       // Parse the JSON to verify document content
       const resultText = getResult.content[0].text;
-      const contentStart = resultText.indexOf("\n") + 1;
-      const docContent = JSON.parse(resultText.substring(contentStart));
+      logger.info("Document content response:", resultText);
+      const contentLines = resultText.split("\n");
+      const contentStart = contentLines.findIndex(line => line.trim() === "Content:") + 1;
+      const contentToProcess = contentLines.slice(contentStart).join("\n").trim();
+      const docContent = JSON.parse(contentToProcess);
       
       expect(docContent).toHaveProperty("text", testDoc.text);
       expect(docContent).toHaveProperty("at");
@@ -279,11 +277,11 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const deleteResult = await deleteHandler({
         scope_name: "_default",
         collection_name: "_default",
-        id: TEST_DOC_ID
+        document_id: TEST_DOC_ID
       });
       
       expect(deleteResult).toBeDefined();
-      expect(deleteResult.content[0].text).toContain("Successfully deleted document");
+      expect(deleteResult.content[0].text).toContain("✅ Document Operation Successful");
       logger.info("Test passed: Delete document");
     });
 
@@ -292,8 +290,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await expect(handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: "non_existent_doc"
-      })).rejects.toThrow();
+        document_id: "non_existent_doc"
+      })).rejects.toThrow("Document with ID non_existent_doc not found");
     });
 
     test("should handle large document", async () => {
@@ -305,12 +303,12 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const result = await handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: "large_doc_" + Date.now(),
-        content: largeDoc
+        document_id: "large_doc_" + Date.now(),
+        document_content: largeDoc
       });
 
       expect(result).toBeDefined();
-      expect(result.content[0].text).toContain("Successfully");
+      expect(result.content[0].text).toContain("✅ Document Operation Successful");
     });
     
     test("4. Run SQL++ query", async () => {
@@ -377,8 +375,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
         await expect(handler({
           scope_name: "_default",
           collection_name: "_default",
-          id: "test_doc"
-        })).rejects.toThrow("Document with ID undefined not found");
+          document_id: "test_doc"
+        })).rejects.toThrow("Document with ID test_doc not found");
       } finally {
         // Restore original bucket
         connection.defaultBucket = originalBucket;
@@ -410,8 +408,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
         await expect(handler({
           scope_name: "_default",
           collection_name: "_default",
-          id: "test_doc"
-        })).rejects.toThrow("Document with ID undefined not found");
+          document_id: "test_doc"
+        })).rejects.toThrow("Document with ID test_doc not found");
       } finally {
         // Restore original bucket
         connection.defaultBucket = originalBucket;
@@ -423,8 +421,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await expect(handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: "",
-        content: {}
+        document_id: "",
+        document_content: {}
       })).rejects.toThrow();
     });
 
@@ -451,15 +449,15 @@ describe("Couchbase MCP Server Tool Tests", () => {
         upsertHandler({
           scope_name: "_default",
           collection_name: "_default",
-          id: `concurrent_doc_${i}`,
-          content: testDoc
+          document_id: `concurrent_doc_${i}`,
+          document_content: testDoc
         })
       );
 
       const results = await Promise.all(concurrentOperations);
       results.forEach(result => {
         expect(result).toBeDefined();
-        expect(result.content[0].text).toContain("Successfully upserted document");
+        expect(result.content[0].text).toContain("✅ Document Operation Successful");
       });
     });
 
@@ -471,12 +469,12 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const result = await handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: specialId,
-        content: testDoc
+        document_id: specialId,
+        document_content: testDoc
       });
 
       expect(result).toBeDefined();
-      expect(result.content[0].text).toContain("Successfully upserted document");
+      expect(result.content[0].text).toContain("✅ Document Operation Successful");
     });
   });
 
@@ -521,8 +519,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await mockServer.registeredTools["upsert_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId,
-        content: testDoc
+        document_id: docId,
+        document_content: testDoc
       });
 
       const startTime = Date.now();
@@ -532,7 +530,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
         const result = await handler({
           scope_name: "_default",
           collection_name: "_default",
-          id: docId
+          document_id: docId
         });
         expect(result).toBeDefined();
         // Add a small delay between requests
@@ -549,7 +547,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await mockServer.registeredTools["delete_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       });
     });
   });
@@ -568,18 +566,20 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const createResult = await mockServer.registeredTools["upsert_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId,
-        content: testDoc
+        document_id: docId,
+        document_content: testDoc
       });
-      expect(createResult.content[0].text).toContain("Successfully upserted document");
+      expect(createResult.content[0].text).toContain("✅ Document Operation Successful");
 
       // 2. Read document
       const readResult = await mockServer.registeredTools["get_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       });
-      const readContent = JSON.parse(readResult.content[0].text.split("\n").slice(1).join("\n"));
+      const readContentLines = readResult.content[0].text.split("\n");
+      const readContentStart = readContentLines.findIndex(line => line.trim() === "Content:") + 1;
+      const readContent = JSON.parse(readContentLines.slice(readContentStart).join("\n").trim());
       expect(readContent).toMatchObject(testDoc);
 
       // 3. Update document
@@ -587,33 +587,35 @@ describe("Couchbase MCP Server Tool Tests", () => {
       const updateResult = await mockServer.registeredTools["upsert_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId,
-        content: updatedDoc
+        document_id: docId,
+        document_content: updatedDoc
       });
-      expect(updateResult.content[0].text).toContain("Successfully upserted document");
+      expect(updateResult.content[0].text).toContain("✅ Document Operation Successful");
 
       // 4. Verify update
       const verifyResult = await mockServer.registeredTools["get_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       });
-      const verifyContent = JSON.parse(verifyResult.content[0].text.split("\n").slice(1).join("\n"));
+      const verifyContentLines = verifyResult.content[0].text.split("\n");
+      const verifyContentStart = verifyContentLines.findIndex(line => line.trim() === "Content:") + 1;
+      const verifyContent = JSON.parse(verifyContentLines.slice(verifyContentStart).join("\n").trim());
       expect(verifyContent.status).toBe("updated");
 
       // 5. Delete document
       const deleteResult = await mockServer.registeredTools["delete_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       });
-      expect(deleteResult.content[0].text).toContain("Successfully deleted document");
+      expect(deleteResult.content[0].text).toContain("✅ Document Operation Successful");
 
       // 6. Verify deletion
       await expect(mockServer.registeredTools["get_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       })).rejects.toThrow();
     });
 
@@ -625,8 +627,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await mockServer.registeredTools["upsert_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId,
-        content: testDoc
+        document_id: docId,
+        document_content: testDoc
       });
 
       // Perform multiple updates
@@ -635,17 +637,19 @@ describe("Couchbase MCP Server Tool Tests", () => {
         await mockServer.registeredTools["upsert_document_by_id"].handler({
           scope_name: "_default",
           collection_name: "_default",
-          id: docId,
-          content: updatedDoc
+          document_id: docId,
+          document_content: updatedDoc
         });
 
         // Verify state after each update
         const result = await mockServer.registeredTools["get_document_by_id"].handler({
           scope_name: "_default",
           collection_name: "_default",
-          id: docId
+          document_id: docId
         });
-        const content = JSON.parse(result.content[0].text.split("\n").slice(1).join("\n"));
+        const contentLines = result.content[0].text.split("\n");
+        const contentStart = contentLines.findIndex(line => line.trim() === "Content:") + 1;
+        const content = JSON.parse(contentLines.slice(contentStart).join("\n").trim());
         expect(content.counter).toBe(i);
       }
 
@@ -653,7 +657,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
       await mockServer.registeredTools["delete_document_by_id"].handler({
         scope_name: "_default",
         collection_name: "_default",
-        id: docId
+        document_id: docId
       });
     });
   });

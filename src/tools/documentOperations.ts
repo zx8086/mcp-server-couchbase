@@ -6,6 +6,10 @@ import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { withErrorHandling } from "./toolFactory";
 
+const formatDocument = (doc: any): string => {
+    return JSON.stringify(doc, null, 2);
+};
+
 const getDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;
     logger.info(`getDocumentHandler called with scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
@@ -16,11 +20,17 @@ const getDocumentById = async (params: any, bucket: Bucket) => {
     
     const collection = bucket.scope(scope_name).collection(collection_name);
     const result = await collection.get(document_id);
+    
+    const formattedText = `📄 Document Details:
+Location: ${scope_name}/${collection_name}/${document_id}
+Content:
+${formatDocument(result.content)}`;
+    
     return {
         content: [
             {
                 type: "text" as const,
-                text: `Document "${document_id}" from collection "${collection_name}" in scope "${scope_name}":\n${JSON.stringify(result.content, null, 2)}`
+                text: formattedText
             }
         ]
     };
@@ -56,11 +66,18 @@ const upsertDocumentById = async (params: any, bucket: Bucket) => {
     try {
         const collection = bucket.scope(scope_name).collection(collection_name);
         await collection.upsert(document_id, document_content);
+        
+        const formattedText = `✅ Document Operation Successful
+Action: Upsert
+Location: ${scope_name}/${collection_name}/${document_id}
+Content:
+${formatDocument(document_content)}`;
+        
         return {
             content: [
                 {
                     type: "text" as const,
-                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
+                    text: formattedText
                 }
             ]
         };
@@ -81,11 +98,16 @@ const deleteDocumentById = async (params: any, bucket: Bucket) => {
     
     const collection = bucket.scope(scope_name).collection(collection_name);
     await collection.remove(document_id);
+    
+    const formattedText = `✅ Document Operation Successful
+Action: Delete
+Location: ${scope_name}/${collection_name}/${document_id}`;
+    
     return {
         content: [
             {
                 type: "text" as const,
-                text: `Successfully deleted document "${document_id}" from collection "${collection_name}" in scope "${scope_name}"`
+                text: formattedText
             }
         ]
     };
