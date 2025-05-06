@@ -4,7 +4,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { withErrorHandling } from "../lib/errorUtils";
+import { withErrorHandling } from "./toolFactory";
 
 const getDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;

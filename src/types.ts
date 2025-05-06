@@ -1,6 +1,7 @@
 /* src/types.ts */
 
 import { Cluster, Bucket, Scope, Collection, DocumentNotFoundError, CouchbaseError, type QueryOptions, QueryResult, StreamableRowPromise, QueryMetaData } from "couchbase";
+import type { AppError } from "./lib/errors";
 
 /**
  * Application context for the MCP server
@@ -64,17 +65,14 @@ export interface Transport {
  * Interface for Couchbase Capella connection
  */
 export interface capellaConn {
-  cluster: QueryableCluster;
+  cluster: Cluster;
   bucket: (name: string) => Bucket;
   scope: (bucket: string, name: string) => Scope;
   collection: (bucket: string, scope: string, name: string) => Collection;
   defaultBucket: Bucket;
   defaultScope: Scope;
   defaultCollection: Collection;
-  errors: {
-    DocumentNotFoundError: typeof DocumentNotFoundError;
-    CouchbaseError: typeof CouchbaseError;
-  };
+  CouchbaseError: typeof CouchbaseError;
 }
 
 /**
@@ -105,6 +103,7 @@ export interface ASTNode {
   children?: ASTNode[];
   start?: number;
   end?: number;
+  rawQuery?: string;
 }
 
 /**

@@ -7,25 +7,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { getCluster } from "./lib/clusterProvider";
 import type { capellaConn } from "./types";
 import tools from "./tools";
 import { AppError } from "./lib/errors";
 import { config } from "./config";
 import { logger } from "./lib/logger";
-
-// Add global type declaration for capellaConn
-declare global {
-    var capellaConn: capellaConn | null;
-}
+import { CouchbaseConnectionManager } from "./lib/connectionManager";
 
 // Application context setup
 class AppContext {
     constructor(
-        public capellaConn: capellaConn | null = null,
         public readOnlyQueryMode: boolean = config.server.readOnlyQueryMode
     ) {}
 }
+
+// Server dependencies type
+type ServerDependencies = {
+    transport: 'stdio' | 'sse';
+    port?: number;
+};
 
 async function createServer(capellaConn: capellaConn): Promise<McpServer> {
     const server = new McpServer({
@@ -63,6 +63,24 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
                                 document_id: "user_123"
                             }
                         }
+                    },
+                    {
+                        input: "Create a quote document in the default scope and collection",
+                        output: {
+                            type: "tool_call",
+                            name: "upsert_document_by_id",
+                            parameters: {
+                                scope_name: "_default",
+                                collection_name: "_default",
+                                document_id: "capella_quote_doc",
+                                document_content: {
+                                    text: "Couchbase Capella MCP Server",
+                                    quote: "You can't trust quotes from the internet",
+                                    author: "Abraham Lincoln",
+                                    at: "2025-05-06T12:34:56.789Z"
+                                }
+                            }
+                        }
                     }
                 ]
             }
@@ -73,36 +91,51 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
 }
 
 function registerTools(server: McpServer, bucket: any): void {
-    tools.forEach((tool, idx) => {
-        const toolName = tool.name || `Tool #${idx + 1}`;
-        logger.info(`Registering tool: ${toolName}`);
-        tool(server, bucket);
+    Object.entries(tools).forEach(([name, toolFn]) => {
+        logger.info(`Registering tool: ${name}`);
+        toolFn(server, bucket);
     });
 }
 
-async function main(): Promise<void> {
+// Export startServer for testing
+export async function startServer(deps: ServerDependencies): Promise<void> {
     try {
         logger.info("Starting Couchbase MCP Server...");
-        const capellaConn = await getCluster();
+        const capellaConn = await CouchbaseConnectionManager.getConnection();
         const server = await createServer(capellaConn);
 
         let transport: Transport;
-        if (config.server.transportMode === "sse") {
-            transport = new SSEServerTransport(config.server.port, "/sse");
-            logger.info(`Using SSE transport on port ${config.server.port}`);
+        if (deps.transport === 'sse') {
+            transport = new SSEServerTransport(deps.port || 8080, "/sse");
+            logger.info(`Using SSE transport on port ${deps.port || 8080}`);
         } else {
             transport = new StdioServerTransport();
             logger.info("Using stdio transport");
         }
 
         await server.connect(transport);
-        logger.info(`Couchbase MCP Server running with ${config.server.transportMode} transport`);
+        logger.info(`Couchbase MCP Server running with ${deps.transport} transport`);
     } catch (error) {
         if (error instanceof AppError) {
             logger.error(`Error starting server: ${error.message} (${error.code})`);
+            throw error;
         } else {
-            logger.error(`Error starting server: ${error instanceof Error ? error.message : String(error)}`);
+            const err = error instanceof Error ? error : new Error(String(error));
+            logger.error(`Error starting server: ${err.message}`);
+            throw err;
         }
+    }
+}
+
+// Main function
+async function main(): Promise<void> {
+    try {
+        await startServer({
+            transport: config.server.transportMode as 'stdio' | 'sse',
+            port: config.server.port
+        });
+    } catch (error) {
+        logger.error(`Fatal error in main(): ${error instanceof Error ? error.message : String(error)}`);
         process.exit(1);
     }
 }

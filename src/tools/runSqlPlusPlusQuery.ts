@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import { z } from "zod";
-import { withErrorHandling } from "../lib/errorUtils";
+import { withErrorHandling } from "./toolFactory";
 import type { Bucket } from "couchbase";
 
 const runQuery = async (params: any, bucket: Bucket) => {
