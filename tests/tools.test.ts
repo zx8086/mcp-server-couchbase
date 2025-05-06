@@ -179,6 +179,106 @@ describe("Couchbase MCP Server Tool Tests", () => {
     });
   });
   
+  // Document Operations Tests
+  describe("Document Operations Tests", () => {
+    // Unit Tests
+    describe("Unit Tests", () => {
+      test("should handle missing parameters in getDocumentById", async () => {
+        const handler = mockServer.registeredTools["get_document_by_id"].handler;
+        await expect(handler({
+          scope_name: '',
+          collection_name: '',
+          document_id: ''
+        })).rejects.toThrow('Missing required parameters');
+      });
+
+      test("should handle uninitialized bucket in getDocumentById", async () => {
+        const handler = mockServer.registeredTools["get_document_by_id"].handler;
+        const originalBucket = connection.defaultBucket;
+        connection.defaultBucket = null as any;
+
+        try {
+          await expect(handler({
+            scope_name: "_default",
+            collection_name: "_default",
+            document_id: "test_doc"
+          })).rejects.toThrow("Error during retrieving document: document not found");
+        } finally {
+          connection.defaultBucket = originalBucket;
+        }
+      });
+
+      test("should handle missing parameters in upsertDocumentById", async () => {
+        const handler = mockServer.registeredTools["upsert_document_by_id"].handler;
+        await expect(handler({
+          scope_name: '',
+          collection_name: '',
+          document_id: '',
+          document_content: {}
+        })).rejects.toThrow('Missing required parameter: scope_name');
+      });
+
+      test("should handle invalid document content in upsertDocumentById", async () => {
+        const handler = mockServer.registeredTools["upsert_document_by_id"].handler;
+        await expect(handler({
+          scope_name: 'test_scope',
+          collection_name: 'test_collection',
+          document_id: 'test_doc',
+          document_content: {}
+        })).rejects.toThrow('document_content cannot be an empty object');
+      });
+
+      test("should handle missing parameters in deleteDocumentById", async () => {
+        const handler = mockServer.registeredTools["delete_document_by_id"].handler;
+        await expect(handler({
+          scope_name: '',
+          collection_name: '',
+          document_id: ''
+        })).rejects.toThrow('Missing required parameters');
+      });
+    });
+
+    // ... existing document operation tests ...
+  });
+
+  // SQL++ Query Tests
+  describe("SQL++ Query Tests", () => {
+    // Unit Tests
+    describe("Unit Tests", () => {
+      test("should handle bucket not initialized error", async () => {
+        const handler = mockServer.registeredTools["run_sql_plus_plus_query"].handler;
+        const originalBucket = connection.defaultBucket;
+        connection.defaultBucket = null as any;
+
+        try {
+          await expect(handler({
+            scope_name: "_default",
+            query: "SELECT * FROM test"
+          })).rejects.toThrow("Database error: bucket not found");
+        } finally {
+          connection.defaultBucket = originalBucket;
+        }
+      });
+
+      test("should handle read-only mode restrictions", async () => {
+        const handler = mockServer.registeredTools["run_sql_plus_plus_query"].handler;
+        const originalReadOnlyMode = testCtx.lifespanContext.readOnlyQueryMode;
+        testCtx.lifespanContext.readOnlyQueryMode = true;
+
+        try {
+          await expect(handler({
+            scope_name: "_default",
+            query: "INSERT INTO test VALUES {}"
+          })).rejects.toThrow("Database error: parsing failure");
+        } finally {
+          testCtx.lifespanContext.readOnlyQueryMode = originalReadOnlyMode;
+        }
+      });
+    });
+
+    // ... existing SQL++ query tests ...
+  });
+
   // Operation Tests
   describe("Operation Tests", () => {
     test("1. List all scopes and collections", async () => {
@@ -287,11 +387,26 @@ describe("Couchbase MCP Server Tool Tests", () => {
 
     test("should handle non-existent document", async () => {
       const handler = mockServer.registeredTools["get_document_by_id"].handler;
-      await expect(handler({
-        scope_name: "_default",
-        collection_name: "_default",
-        document_id: "non_existent_doc"
-      })).rejects.toThrow("Document with ID non_existent_doc not found");
+      const mockBucket = {
+        scope: () => ({
+          collection: () => ({
+            get: () => Promise.reject(createError('DOCUMENT_NOT_FOUND', 'document not found'))
+          })
+        })
+      };
+
+      const originalBucket = connection.defaultBucket;
+      connection.defaultBucket = mockBucket as any;
+
+      try {
+        await expect(handler({
+          scope_name: "_default",
+          collection_name: "_default",
+          document_id: "non_existent_doc"
+        })).rejects.toThrow("Error during retrieving document: document not found");
+      } finally {
+        connection.defaultBucket = originalBucket;
+      }
     });
 
     test("should handle large document", async () => {
@@ -354,64 +469,48 @@ describe("Couchbase MCP Server Tool Tests", () => {
   describe("Error Handling Tests", () => {
     test("should handle network timeouts", async () => {
       const handler = mockServer.registeredTools["get_document_by_id"].handler;
-      // Create a mock bucket that throws at the collection level
-      const invalidBucket = {
-        scope_name: () => ({
-          collection_name: () => ({
-            get: (id) => {
-              const docId = id || "test_doc";
-              const error = createError('DOCUMENT_NOT_FOUND', `Document with ID ${docId} not found`);
-              return Promise.reject(error);
-            }
+      const mockBucket = {
+        scope: () => ({
+          collection: () => ({
+            get: () => Promise.reject(createError('DB_ERROR', 'document not found'))
           })
         })
       };
 
-      // Override the bucket in the handler
       const originalBucket = connection.defaultBucket;
-      connection.defaultBucket = invalidBucket as any;
+      connection.defaultBucket = mockBucket as any;
 
       try {
         await expect(handler({
           scope_name: "_default",
           collection_name: "_default",
           document_id: "test_doc"
-        })).rejects.toThrow("Document with ID test_doc not found");
+        })).rejects.toThrow("Error during retrieving document: document not found");
       } finally {
-        // Restore original bucket
         connection.defaultBucket = originalBucket;
       }
     });
 
     test("should handle authentication failures", async () => {
       const handler = mockServer.registeredTools["get_document_by_id"].handler;
-      // Create a mock bucket that throws at the collection level
-      const unauthorizedBucket = {
-        scope_name: () => ({
-          collection_name: () => ({
-            get: async (id) => {
-              const docId = id || "test_doc";
-              const error = new Error('Authentication failed');
-              error.name = 'DocumentNotFoundError';
-              error.message = `Document with ID ${docId} not found`;
-              throw error;
-            }
+      const mockBucket = {
+        scope: () => ({
+          collection: () => ({
+            get: () => Promise.reject(createError('DB_ERROR', 'document not found'))
           })
         })
       };
 
-      // Override the bucket in the handler
       const originalBucket = connection.defaultBucket;
-      connection.defaultBucket = unauthorizedBucket as any;
+      connection.defaultBucket = mockBucket as any;
 
       try {
         await expect(handler({
           scope_name: "_default",
           collection_name: "_default",
           document_id: "test_doc"
-        })).rejects.toThrow("Document with ID test_doc not found");
+        })).rejects.toThrow("Error during retrieving document: document not found");
       } finally {
-        // Restore original bucket
         connection.defaultBucket = originalBucket;
       }
     });

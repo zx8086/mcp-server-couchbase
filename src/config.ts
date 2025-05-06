@@ -61,3 +61,24 @@ export const config = {
         cxxcbcCache: env.CXXCBC_CACHE_DIR || "/usr/src/app/deps/couchbase-cxx-cache"
     }
 };
+
+function validateRequiredConfig() {
+    const requiredFields = [
+        { key: 'couchbase.url', value: config.couchbase.url },
+        { key: 'couchbase.username', value: config.couchbase.username },
+        { key: 'couchbase.password', value: config.couchbase.password },
+        { key: 'couchbase.bucket', value: config.couchbase.bucket },
+    ];
+    
+    const missingFields = requiredFields
+        .filter(field => !field.value)
+        .map(field => field.key);
+        
+    if (missingFields.length > 0) {
+        console.error(`Missing required configuration: ${missingFields.join(', ')}`);
+        process.exit(1);
+    }
+}
+
+// Validate configuration at startup
+validateRequiredConfig();

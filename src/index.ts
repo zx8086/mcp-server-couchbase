@@ -138,17 +138,43 @@ export async function startServer(deps: ServerDependencies): Promise<void> {
     }
 }
 
+/**
+ * Create and configure the server instance
+ */
+export async function setupServer(): Promise<{
+  server: McpServer;
+  transport: Transport;
+  capellaConn: capellaConn;
+}> {
+  // Get connection
+  const capellaConn = await CouchbaseConnectionManager.getConnection();
+  
+  // Create server instance
+  const server = await createServer(capellaConn);
+  
+  // Create transport
+  const transport = await createTransport({
+    transport: config.server.transportMode as 'stdio' | 'sse',
+    port: config.server.port
+  });
+  
+  return { server, transport, capellaConn };
+}
+
 // Main function
 async function main(): Promise<void> {
-    try {
-        await startServer({
-            transport: config.server.transportMode as 'stdio' | 'sse',
-            port: config.server.port
-        });
-    } catch (error) {
-        logger.error(`Fatal error in main(): ${error instanceof Error ? error.message : String(error)}`);
-        process.exit(1);
-    }
+  try {
+    logger.info("Starting Couchbase MCP Server...");
+    
+    const { server, transport } = await setupServer();
+    
+    // Connect and start the server
+    await server.connect(transport);
+    logger.info(`Couchbase MCP Server running with ${config.server.transportMode} transport`);
+  } catch (error) {
+    logger.error(`Fatal error in main(): ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
 
 main().catch((error) => {

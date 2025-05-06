@@ -1,10 +1,43 @@
 /* src/lib/errorUtils.ts */
 
 import { AppError, createError } from './errors';
+import type { ErrorCode } from './errors';
 import type { CouchbaseError } from 'couchbase';
 import { createContextLogger } from './logger';
 
 const errorLogger = createContextLogger('ErrorHandler');
+
+/**
+ * Generic error handler for async operations
+ * @param operation The operation to execute
+ * @param errorCode The error code to use if the operation fails
+ * @param operationName A descriptive name for the operation
+ * @param metadata Additional metadata to include in the error
+ */
+export async function handleOperation<T>(
+  operation: () => Promise<T>,
+  errorCode: ErrorCode,
+  operationName: string,
+  metadata?: Record<string, any>
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    
+    errorLogger.error(`Error during ${operationName}`, {
+      error: error instanceof Error ? error.message : String(error),
+      ...metadata
+    });
+    
+    throw createError(errorCode, `Error during ${operationName}: ${error instanceof Error ? error.message : String(error)}`, {
+      ...metadata,
+      originalError: error
+    });
+  }
+}
 
 export function handleCouchbaseError(error: Error, params?: { document_id?: string; operation?: string }): never {
     // First check if it's an AppError

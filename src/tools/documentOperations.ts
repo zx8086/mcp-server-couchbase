@@ -5,6 +5,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger, createContextLogger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { withErrorHandling } from "./toolUtils";
+import { handleOperation } from "../lib/errorUtils";
+import { createError } from "../lib/errors";
 
 const docLogger = createContextLogger('DocumentOps');
 
@@ -12,136 +14,153 @@ const formatDocument = (doc: any): string => {
     return JSON.stringify(doc, null, 2);
 };
 
-const getDocumentById = async (params: any, bucket: Bucket) => {
-    const { scope_name, collection_name, document_id } = params;
-    docLogger.info('Retrieving document', {
-        scope: scope_name,
-        collection: collection_name,
-        documentId: document_id
-    });
+export const getDocumentById = async (params: any, bucket: Bucket) => {
+    return handleOperation(
+        async () => {
+            const { scope_name, collection_name, document_id } = params;
+            docLogger.info('Retrieving document', {
+                scope: scope_name,
+                collection: collection_name,
+                documentId: document_id
+            });
 
-    if (!scope_name || !collection_name || !document_id) {
-        docLogger.error('Missing required parameters', {
-            hasScope: !!scope_name,
-            hasCollection: !!collection_name,
-            hasDocumentId: !!document_id
-        });
-        throw new Error(`Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
-    }
-    if (!bucket) {
-        docLogger.error('Bucket not initialized');
-        throw new Error("Bucket is not initialized");
-    }
-    
-    try {
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        const result = await collection.get(document_id);
-        
-        docLogger.info('Document retrieved successfully', {
-            scope: scope_name,
-            collection: collection_name,
-            documentId: document_id
-        });
-        
-        const formattedText = `📄 Document Details:
+            if (!scope_name || !collection_name || !document_id) {
+                docLogger.error('Missing required parameters', {
+                    hasScope: !!scope_name,
+                    hasCollection: !!collection_name,
+                    hasDocumentId: !!document_id
+                });
+                throw createError('VALIDATION_ERROR', `Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
+            }
+            if (!bucket) {
+                docLogger.error('Bucket not initialized');
+                throw createError('DB_ERROR', "Bucket is not initialized");
+            }
+            
+            const collection = bucket.scope(scope_name).collection(collection_name);
+            const result = await collection.get(document_id);
+            
+            docLogger.info('Document retrieved successfully', {
+                scope: scope_name,
+                collection: collection_name,
+                documentId: document_id
+            });
+            
+            const formattedText = `📄 Document Details:
 Location: ${scope_name}/${collection_name}/${document_id}
 Content:
 ${formatDocument(result.content)}`;
-        
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: formattedText
-                }
-            ]
-        };
-    } catch (error) {
-        docLogger.error('Failed to retrieve document', {
-            error: error instanceof Error ? error.message : String(error),
-            scope: scope_name,
-            collection: collection_name,
-            documentId: document_id
-        });
-        throw error;
-    }
+            
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: formattedText
+                    }
+                ]
+            };
+        },
+        'DB_ERROR',
+        'retrieving document',
+        { scope: params.scope_name, collection: params.collection_name, documentId: params.document_id }
+    );
 };
 
-const upsertDocumentById = async (params: any, bucket: Bucket) => {
-    const { scope_name, collection_name, document_id, document_content } = params || {};
-    
-    // More thorough validation with descriptive messages
-    if (!scope_name) {
-        throw new Error("Missing required parameter: scope_name");
-    }
-    if (!collection_name) {
-        throw new Error("Missing required parameter: collection_name");
-    }
-    if (!document_id) {
-        throw new Error("Missing required parameter: document_id");
-    }
-    
-    // Validate document_content specifically
-    if (!document_content) {
-        throw new Error("Missing required parameter: document_content");
-    }
-    if (typeof document_content !== 'object') {
-        throw new Error("document_content must be an object");
-    }
-    if (Object.keys(document_content).length === 0) {
-        throw new Error("document_content cannot be an empty object");
-    }
-    
-    if (!bucket) throw new Error("Bucket is not initialized");
-    
-    try {
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        await collection.upsert(document_id, document_content);
-        
-        const formattedText = `✅ Document Operation Successful
+export const upsertDocumentById = async (params: any, bucket: Bucket) => {
+    return handleOperation(
+        async () => {
+            const { scope_name, collection_name, document_id, document_content } = params || {};
+            
+            // More thorough validation with descriptive messages
+            if (!scope_name) {
+                throw createError('VALIDATION_ERROR', "Missing required parameter: scope_name");
+            }
+            if (!collection_name) {
+                throw createError('VALIDATION_ERROR', "Missing required parameter: collection_name");
+            }
+            if (!document_id) {
+                throw createError('VALIDATION_ERROR', "Missing required parameter: document_id");
+            }
+            
+            // Validate document_content specifically
+            if (!document_content) {
+                throw createError('VALIDATION_ERROR', "Missing required parameter: document_content");
+            }
+            if (typeof document_content !== 'object') {
+                throw createError('VALIDATION_ERROR', "document_content must be an object");
+            }
+            if (Object.keys(document_content).length === 0) {
+                throw createError('VALIDATION_ERROR', "document_content cannot be an empty object");
+            }
+            
+            if (!bucket) {
+                throw createError('DB_ERROR', "Bucket is not initialized");
+            }
+            
+            const collection = bucket.scope(scope_name).collection(collection_name);
+            await collection.upsert(document_id, document_content);
+            
+            const formattedText = `✅ Document Operation Successful
 Action: Upsert
 Location: ${scope_name}/${collection_name}/${document_id}
 Content:
 ${formatDocument(document_content)}`;
-        
-        return {
-            content: [
-                {
-                    type: "text" as const,
-                    text: formattedText
-                }
-            ]
-        };
-    } catch (error: any) {
-        if (error.message?.includes('scope not found')) {
-            throw new Error(`Scope "${scope_name}" not found. Available scopes: _default, _system, s3, s3rag`);
+            
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: formattedText
+                    }
+                ]
+            };
+        },
+        'DB_ERROR',
+        'upserting document',
+        { 
+            scope: params?.scope_name, 
+            collection: params?.collection_name, 
+            documentId: params?.document_id 
         }
-        throw error;
-    }
+    );
 };
 
-const deleteDocumentById = async (params: any, bucket: Bucket) => {
-    const { scope_name, collection_name, document_id } = params || {};
-    if (!scope_name || !collection_name || !document_id) {
-        throw new Error("Missing required parameters: scope_name, collection_name, or document_id");
-    }
-    if (!bucket) throw new Error("Bucket is not initialized");
-    
-    const collection = bucket.scope(scope_name).collection(collection_name);
-    await collection.remove(document_id);
-    
-    const formattedText = `✅ Document Operation Successful
+export const deleteDocumentById = async (params: any, bucket: Bucket) => {
+    return handleOperation(
+        async () => {
+            const { scope_name, collection_name, document_id } = params;
+            
+            if (!scope_name || !collection_name || !document_id) {
+                throw createError('VALIDATION_ERROR', `Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
+            }
+            if (!bucket) {
+                throw createError('DB_ERROR', "Bucket is not initialized");
+            }
+            
+            const collection = bucket.scope(scope_name).collection(collection_name);
+            await collection.remove(document_id);
+            
+            const formattedText = `✅ Document Operation Successful
 Action: Delete
 Location: ${scope_name}/${collection_name}/${document_id}`;
-    
-    return {
-        content: [
-            {
-                type: "text" as const,
-                text: formattedText
-            }
-        ]
-    };
+            
+            return {
+                content: [
+                    {
+                        type: "text" as const,
+                        text: formattedText
+                    }
+                ]
+            };
+        },
+        'DB_ERROR',
+        'deleting document',
+        { 
+            scope: params?.scope_name, 
+            collection: params?.collection_name, 
+            documentId: params?.document_id 
+        }
+    );
 };
 
 export const getDocumentByIdHandler = withErrorHandling(getDocumentById, 'DB_ERROR', 'getting document');
