@@ -4,7 +4,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { withErrorHandling } from "./toolFactory";
+import { withErrorHandling } from "./toolUtils";
 
 const formatDocument = (doc: any): string => {
     return JSON.stringify(doc, null, 2);

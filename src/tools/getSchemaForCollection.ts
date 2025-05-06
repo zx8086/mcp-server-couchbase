@@ -2,7 +2,8 @@
 
 import type { Bucket } from "couchbase";
 import { z } from "zod";
-import { createTool } from "./toolFactory";
+import { logger } from "../lib/logger";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const formatSchema = (doc: any): string => {
     let formattedText = "📋 Collection Schema:\n\n";
@@ -39,39 +40,70 @@ const formatSchema = (doc: any): string => {
     return formattedText;
 };
 
-const getSchemaHandler = async (params: { scope: string; collection: string }, bucket: Bucket) => {
-    const { scope, collection } = params;
-    const scopeObj = bucket.scope(scope);
-    
-    // Get a sample document to infer schema
-    const result = await scopeObj.query("SELECT * FROM `" + collection + "` LIMIT 1");
-    const rows = await result.rows;
-    
-    if (rows.length === 0) {
+const getSchemaHandler = async (params: any, bucket: Bucket) => {
+    if (!params || typeof params !== 'object') {
+        throw new Error("Missing required arguments object");
+    }
+    const { scope_name, collection_name } = params;
+    logger.info(`getSchemaHandler called with scope_name=${scope_name}, collection_name=${collection_name}`);
+
+    // Check if scope and collection exist
+    const collectionMgr = bucket.collections();
+    const scopes = await collectionMgr.getAllScopes();
+    const foundScope = scopes.find(s => s.name === scope_name);
+    if (!foundScope) {
+        throw new Error(`Scope "${scope_name}" does not exist`);
+    }
+    const foundCollection = foundScope.collections.find(c => c.name === collection_name);
+    if (!foundCollection) {
+        throw new Error(`Collection "${collection_name}" does not exist in scope "${scope_name}"`);
+    }
+
+    try {
+        const result = await bucket.scope(scope_name).query("SELECT * FROM `" + collection_name + "` LIMIT 1");
+        const rows = await result.rows;
+
+        if (rows.length === 0) {
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: "❌ No documents found in collection to infer schema"
+                }]
+            };
+        }
+
         return {
             content: [{
                 type: "text" as const,
-                text: "❌ No documents found in collection to infer schema"
+                text: formatSchema(rows[0])
             }]
         };
+    } catch (err: any) {
+        if (err && typeof err.message === "string" && err.message.includes("index")) {
+            return {
+                content: [{
+                    type: "text" as const,
+                    text: "❌ Database error: index failure. Please create a primary index on this collection to enable schema inference. Example:\n\nCREATE PRIMARY INDEX ON `bucket`.`scope`.`collection`;"
+                }]
+            };
+        }
+        throw err;
     }
-    
-    return {
-        content: [{
-            type: "text" as const,
-            text: formatSchema(rows[0])
-        }]
-    };
 };
 
-const paramSchema = z.object({
-    scope: z.string().describe("Name of the scope"),
-    collection: z.string().describe("Name of the collection")
-});
-
-export default createTool(
-    "get_schema_for_collection",
-    "Get the schema for a collection by sampling a document",
-    paramSchema,
-    getSchemaHandler
-);
+export default (server: McpServer, bucket: Bucket) => {
+    server.tool(
+        "get_schema_for_collection",
+        "Get the schema for a collection by sampling a document",
+        {
+            scope_name: z.string().describe("Name of the scope"),
+            collection_name: z.string().describe("Name of the collection")
+        },
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return getSchemaHandler(params, bucket);
+        }
+    );
+};

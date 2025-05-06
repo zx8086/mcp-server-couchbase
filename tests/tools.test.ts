@@ -200,16 +200,16 @@ describe("Couchbase MCP Server Tool Tests", () => {
     test("should handle invalid scope name", async () => {
       const handler = mockServer.registeredTools["get_schema_for_collection"].handler;
       await expect(handler({
-        scope: "non_existent_scope",
-        collection: "_default"
+        scope_name: "non_existent_scope",
+        collection_name: "_default"
       })).rejects.toThrow();
     });
     
     test("2. Get schema for default collection", async () => {
       const handler = mockServer.registeredTools["get_schema_for_collection"].handler;
       const result = await handler({
-        scope: "_default",
-        collection: "_default"
+        scope_name: "_default",
+        collection_name: "_default"
       });
       
       expect(result).toBeDefined();
@@ -437,8 +437,8 @@ describe("Couchbase MCP Server Tool Tests", () => {
     test("should handle configuration errors", async () => {
       const handler = mockServer.registeredTools["get_schema_for_collection"].handler;
       await expect(handler({
-        scope: "non_existent_scope",
-        collection: "_default"
+        scope_name: "non_existent_scope",
+        collection_name: "_default"
       })).rejects.toThrow();
     });
 

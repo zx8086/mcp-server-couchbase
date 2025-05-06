@@ -1,12 +1,10 @@
-/* src/tools/toolFactory.ts */
-
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Bucket } from "couchbase";
-import { z } from "zod";
 import { handleCouchbaseError } from "../lib/errorUtils";
 import { AppError } from "../lib/errors";
+import { z } from "zod";
 
-type ToolHandler<T extends z.ZodType> = (params: z.infer<T>, bucket: Bucket) => Promise<any>;
+// Type for tool handler
+export type ToolHandler<T extends z.ZodType> = (params: z.infer<T>, bucket: Bucket) => Promise<any>;
 
 export function withErrorHandling<T extends z.ZodType>(
     handler: ToolHandler<T>,
@@ -28,21 +26,5 @@ export function withErrorHandling<T extends z.ZodType>(
                 document_id: params['document_id']
             });
         }
-    };
-}
-
-export function createTool<T extends z.ZodType>(
-    name: string,
-    description: string,
-    paramSchema: T,
-    handler: ToolHandler<T>
-) {
-    return (server: McpServer, bucket: Bucket): void => {
-        server.tool(
-            name,
-            description,
-            paramSchema,
-            async (params: z.infer<T>) => withErrorHandling(handler, 'DB_ERROR', name)(params, bucket)
-        );
     };
 } 

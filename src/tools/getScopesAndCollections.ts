@@ -2,7 +2,7 @@
 
 import type { Bucket } from "couchbase";
 import { z } from "zod";
-import { createTool } from "./toolFactory";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const getScopesAndCollectionsHandler = async (_params: {}, bucket: Bucket) => {
     const scopes = await bucket.collections().getAllScopes();
@@ -35,12 +35,19 @@ const getScopesAndCollectionsHandler = async (_params: {}, bucket: Bucket) => {
     };
 };
 
-export default createTool(
-    "get_scopes_and_collections_in_bucket",
-    "Get all scopes and collections in the bucket",
-    z.object({}),
-    getScopesAndCollectionsHandler
-);
+export default (server: McpServer, bucket: Bucket) => {
+    server.tool(
+        "get_scopes_and_collections_in_bucket",
+        "Get all scopes and collections in the bucket",
+        {},
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return getScopesAndCollectionsHandler(params, bucket);
+        }
+    );
+};
 
 interface Collection {
     name: string;

@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import { z } from "zod";
-import { withErrorHandling } from "./toolFactory";
+import { withErrorHandling } from "./toolUtils";
 import type { Bucket } from "couchbase";
 
 const runQuery = async (params: any, bucket: Bucket) => {
@@ -57,7 +57,7 @@ const runQuery = async (params: any, bucket: Bucket) => {
 
 const runQueryHandler = withErrorHandling(runQuery, 'QUERY_ERROR', 'executing SQL++ query');
 
-export default function runSqlPlusPlusQuery(server: McpServer, bucket: Bucket): void {
+export default (server: McpServer, bucket: Bucket) => {
     server.tool(
         "run_sql_plus_plus_query",
         "Run a SQL++ query on a specific scope",
@@ -65,6 +65,11 @@ export default function runSqlPlusPlusQuery(server: McpServer, bucket: Bucket): 
             scope_name: z.string().describe("Name of the scope"),
             query: z.string().describe("SQL++ query to execute")
         },
-        async (params: any) => runQueryHandler(params, bucket)
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return runQueryHandler(params, bucket);
+        }
     );
-}
+};
