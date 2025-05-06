@@ -2,9 +2,11 @@
 
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger } from "../lib/logger";
+import { logger, createContextLogger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { withErrorHandling } from "./toolUtils";
+
+const docLogger = createContextLogger('DocumentOps');
 
 const formatDocument = (doc: any): string => {
     return JSON.stringify(doc, null, 2);
@@ -12,28 +14,57 @@ const formatDocument = (doc: any): string => {
 
 const getDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id } = params;
-    logger.info(`getDocumentHandler called with scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
+    docLogger.info('Retrieving document', {
+        scope: scope_name,
+        collection: collection_name,
+        documentId: document_id
+    });
+
     if (!scope_name || !collection_name || !document_id) {
+        docLogger.error('Missing required parameters', {
+            hasScope: !!scope_name,
+            hasCollection: !!collection_name,
+            hasDocumentId: !!document_id
+        });
         throw new Error(`Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
     }
-    if (!bucket) throw new Error("Bucket is not initialized");
+    if (!bucket) {
+        docLogger.error('Bucket not initialized');
+        throw new Error("Bucket is not initialized");
+    }
     
-    const collection = bucket.scope(scope_name).collection(collection_name);
-    const result = await collection.get(document_id);
-    
-    const formattedText = `📄 Document Details:
+    try {
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        const result = await collection.get(document_id);
+        
+        docLogger.info('Document retrieved successfully', {
+            scope: scope_name,
+            collection: collection_name,
+            documentId: document_id
+        });
+        
+        const formattedText = `📄 Document Details:
 Location: ${scope_name}/${collection_name}/${document_id}
 Content:
 ${formatDocument(result.content)}`;
-    
-    return {
-        content: [
-            {
-                type: "text" as const,
-                text: formattedText
-            }
-        ]
-    };
+        
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: formattedText
+                }
+            ]
+        };
+    } catch (error) {
+        docLogger.error('Failed to retrieve document', {
+            error: error instanceof Error ? error.message : String(error),
+            scope: scope_name,
+            collection: collection_name,
+            documentId: document_id
+        });
+        throw error;
+    }
 };
 
 const upsertDocumentById = async (params: any, bucket: Bucket) => {

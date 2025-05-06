@@ -3,15 +3,10 @@
 import { createLogger, format, transports } from 'winston';
 import { config } from '../config';
 
-const basicLogger = createLogger({
-    level: 'info',
-    format: format.combine(
-        format.timestamp(),
-        format.printf(({ timestamp, level, message }) => {
-            return `${timestamp} [${level}]: ${message}`;
-        })
-    ),
-    transports: [new transports.Console()]
+// Add custom format for structured logging
+const structuredFormat = format.printf(({ level, message, timestamp, ...metadata }) => {
+  const meta = Object.keys(metadata).length ? JSON.stringify(metadata) : '';
+  return `${timestamp} - [${config.server.name}] - ${level}: ${message} ${meta}`;
 });
 
 // Export the basic logger
@@ -19,9 +14,9 @@ export const logger = createLogger({
     level: config.log.level,
     format: format.combine(
         format.timestamp(),
-        format.printf(({ level, message, timestamp }) => {
-            return `${timestamp} - [${config.server.name}] - ${level}: ${message}`;
-        })
+        format.errors({ stack: true }),
+        format.metadata(),
+        structuredFormat
     ),
     transports: [new transports.Console({ stderrLevels: ['info', 'warn', 'error', 'debug', 'verbose', 'silly'] })]
 });
@@ -33,10 +28,20 @@ export function configureLogger(logLevel: string) {
         level: logLevel,
         format: format.combine(
             format.timestamp(),
-            format.printf(({ timestamp, level, message }) => {
-                return `${timestamp} [${level}]: ${message}`;
-            })
+            format.errors({ stack: true }),
+            format.metadata(),
+            structuredFormat
         ),
         transports: [new transports.Console()]
     });
+}
+
+// Helper functions for contextual logging
+export function createContextLogger(context: string) {
+    return {
+        info: (message: string, meta?: any) => logger.info(message, { context, ...meta }),
+        error: (message: string, meta?: any) => logger.error(message, { context, ...meta }),
+        warn: (message: string, meta?: any) => logger.warn(message, { context, ...meta }),
+        debug: (message: string, meta?: any) => logger.debug(message, { context, ...meta })
+    };
 }
