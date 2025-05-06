@@ -13,6 +13,7 @@ import { config } from "./config";
 import { logger } from "./lib/logger";
 import { CouchbaseConnectionManager } from "./lib/connectionManager";
 import { ToolRegistry } from "./lib/toolRegistry";
+import { registerResourceMethods } from "./lib/resources";
 
 // Application context setup
 const appContext: AppContext = {
@@ -94,6 +95,7 @@ export async function createServer(capellaConn: capellaConn): Promise<McpServer>
     });
     
     ToolRegistry.registerAll(server, capellaConn.defaultBucket);
+    registerResourceMethods(server);
     return server;
 }
 
