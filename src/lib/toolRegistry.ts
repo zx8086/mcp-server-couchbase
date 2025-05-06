@@ -1,3 +1,5 @@
+/* src/lib/toolRegistry.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import tools from "../tools";
 import { logger } from "./logger";

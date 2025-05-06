@@ -1,3 +1,5 @@
+/* src/tools/toolUtils.ts */
+
 import type { Bucket } from "couchbase";
 import { handleCouchbaseError } from "../lib/errorUtils";
 import { AppError, createError } from "../lib/errors";

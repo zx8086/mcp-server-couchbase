@@ -1,3 +1,5 @@
+/* src/set-global.ts */
+
 import path from 'path';
 import { fileURLToPath } from 'url';
 

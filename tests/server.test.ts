@@ -23,7 +23,7 @@ describe("Server Initialization Tests", () => {
             defaultScope: {},
             defaultCollection: {},
             CouchbaseError: Error
-        } as capellaConn;
+        } as unknown as capellaConn;
 
         // Mock connection manager
         mock.module("../src/lib/connectionManager", () => ({
