@@ -4,6 +4,7 @@ import { AppError, createError } from './errors';
 import type { ErrorCode } from './errors';
 import type { CouchbaseError } from 'couchbase';
 import { createContextLogger } from './logger';
+import { logger } from "./logger";
 
 const errorLogger = createContextLogger('ErrorHandler');
 
@@ -14,29 +15,29 @@ const errorLogger = createContextLogger('ErrorHandler');
  * @param operationName A descriptive name for the operation
  * @param metadata Additional metadata to include in the error
  */
-export async function handleOperation<T>(
+export function handleOperation<T>(
   operation: () => Promise<T>,
   errorCode: ErrorCode,
   operationName: string,
-  metadata?: Record<string, any>
+  context: Record<string, any> = {}
 ): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
+  return operation().catch((error: unknown) => {
     if (error instanceof AppError) {
       throw error;
     }
     
-    errorLogger.error(`Error during ${operationName}`, {
-      error: error instanceof Error ? error.message : String(error),
-      ...metadata
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Error during ${operationName}`, {
+      metadata: {
+        service: "couchbase-capella-mcp",
+        context: "ErrorHandler",
+        error: errorMessage,
+        ...context
+      }
     });
     
-    throw createError(errorCode, `Error during ${operationName}: ${error instanceof Error ? error.message : String(error)}`, {
-      ...metadata,
-      originalError: error
-    });
-  }
+    throw createError(errorCode, `Error during ${operationName}: ${errorMessage}`);
+  });
 }
 
 export function handleCouchbaseError(error: Error, params?: { document_id?: string; operation?: string }): never {

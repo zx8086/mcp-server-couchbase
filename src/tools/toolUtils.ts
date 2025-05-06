@@ -16,8 +16,7 @@ export function validateDocumentParams(params: any): void {
     if (!document_id) missingParams.push("document_id");
     
     if (missingParams.length > 0) {
-        throw createError('VALIDATION_ERROR', 
-            `Missing required parameters: ${missingParams.join(', ')}`);
+        throw createError('VALIDATION_ERROR', `Missing required parameter: ${missingParams[0]}`);
     }
 }
 
@@ -30,29 +29,6 @@ export function formatDocumentResponse(action: string, scope: string, collection
     }
     
     return {
-        content: [{ type: "text", text }]
-    };
-}
-
-export function withErrorHandling<T extends z.ZodType>(
-    handler: ToolHandler<T>,
-    errorCode: string,
-    toolName: string
-): ToolHandler<T> {
-    return async (params: z.infer<T>, bucket: Bucket) => {
-        try {
-            return await handler(params, bucket);
-        } catch (error) {
-            if (error instanceof AppError) {
-                throw error;
-            }
-            if (error instanceof Error && error.name === 'DocumentNotFoundError') {
-                throw new Error(`Document with ID ${params['document_id']} not found`);
-            }
-            throw handleCouchbaseError(error as Error, { 
-                toolName,
-                document_id: params['document_id']
-            });
-        }
+        content: [{ type: "text" as const, text }]
     };
 } 

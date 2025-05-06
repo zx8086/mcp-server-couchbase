@@ -4,7 +4,7 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger, createContextLogger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { withErrorHandling } from "./toolUtils";
+import { validateDocumentParams, formatDocumentResponse } from "./toolUtils";
 import { handleOperation } from "../lib/errorUtils";
 import { createError } from "../lib/errors";
 
@@ -17,21 +17,9 @@ const formatDocument = (doc: any): string => {
 export const getDocumentById = async (params: any, bucket: Bucket) => {
     return handleOperation(
         async () => {
+            validateDocumentParams(params);
             const { scope_name, collection_name, document_id } = params;
-            docLogger.info('Retrieving document', {
-                scope: scope_name,
-                collection: collection_name,
-                documentId: document_id
-            });
-
-            if (!scope_name || !collection_name || !document_id) {
-                docLogger.error('Missing required parameters', {
-                    hasScope: !!scope_name,
-                    hasCollection: !!collection_name,
-                    hasDocumentId: !!document_id
-                });
-                throw createError('VALIDATION_ERROR', `Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
-            }
+            
             if (!bucket) {
                 docLogger.error('Bucket not initialized');
                 throw createError('DB_ERROR', "Bucket is not initialized");
@@ -46,19 +34,7 @@ export const getDocumentById = async (params: any, bucket: Bucket) => {
                 documentId: document_id
             });
             
-            const formattedText = `📄 Document Details:
-Location: ${scope_name}/${collection_name}/${document_id}
-Content:
-${formatDocument(result.content)}`;
-            
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formattedText
-                    }
-                ]
-            };
+            return formatDocumentResponse('Get', scope_name, collection_name, document_id, result.content);
         },
         'DB_ERROR',
         'retrieving document',
@@ -69,20 +45,9 @@ ${formatDocument(result.content)}`;
 export const upsertDocumentById = async (params: any, bucket: Bucket) => {
     return handleOperation(
         async () => {
-            const { scope_name, collection_name, document_id, document_content } = params || {};
+            validateDocumentParams(params);
+            const { scope_name, collection_name, document_id, document_content } = params;
             
-            // More thorough validation with descriptive messages
-            if (!scope_name) {
-                throw createError('VALIDATION_ERROR', "Missing required parameter: scope_name");
-            }
-            if (!collection_name) {
-                throw createError('VALIDATION_ERROR', "Missing required parameter: collection_name");
-            }
-            if (!document_id) {
-                throw createError('VALIDATION_ERROR', "Missing required parameter: document_id");
-            }
-            
-            // Validate document_content specifically
             if (!document_content) {
                 throw createError('VALIDATION_ERROR', "Missing required parameter: document_content");
             }
@@ -100,20 +65,7 @@ export const upsertDocumentById = async (params: any, bucket: Bucket) => {
             const collection = bucket.scope(scope_name).collection(collection_name);
             await collection.upsert(document_id, document_content);
             
-            const formattedText = `✅ Document Operation Successful
-Action: Upsert
-Location: ${scope_name}/${collection_name}/${document_id}
-Content:
-${formatDocument(document_content)}`;
-            
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formattedText
-                    }
-                ]
-            };
+            return formatDocumentResponse('Upsert', scope_name, collection_name, document_id, document_content);
         },
         'DB_ERROR',
         'upserting document',
@@ -128,11 +80,9 @@ ${formatDocument(document_content)}`;
 export const deleteDocumentById = async (params: any, bucket: Bucket) => {
     return handleOperation(
         async () => {
+            validateDocumentParams(params);
             const { scope_name, collection_name, document_id } = params;
             
-            if (!scope_name || !collection_name || !document_id) {
-                throw createError('VALIDATION_ERROR', `Missing required parameters: scope_name=${scope_name}, collection_name=${collection_name}, document_id=${document_id}`);
-            }
             if (!bucket) {
                 throw createError('DB_ERROR', "Bucket is not initialized");
             }
@@ -140,18 +90,7 @@ export const deleteDocumentById = async (params: any, bucket: Bucket) => {
             const collection = bucket.scope(scope_name).collection(collection_name);
             await collection.remove(document_id);
             
-            const formattedText = `✅ Document Operation Successful
-Action: Delete
-Location: ${scope_name}/${collection_name}/${document_id}`;
-            
-            return {
-                content: [
-                    {
-                        type: "text" as const,
-                        text: formattedText
-                    }
-                ]
-            };
+            return formatDocumentResponse('Delete', scope_name, collection_name, document_id);
         },
         'DB_ERROR',
         'deleting document',
@@ -163,9 +102,10 @@ Location: ${scope_name}/${collection_name}/${document_id}`;
     );
 };
 
-export const getDocumentByIdHandler = withErrorHandling(getDocumentById, 'DB_ERROR', 'getting document');
-export const upsertDocumentByIdHandler = withErrorHandling(upsertDocumentById, 'DB_ERROR', 'upserting document');
-export const deleteDocumentByIdHandler = withErrorHandling(deleteDocumentById, 'DB_ERROR', 'deleting document');
+// Export handlers for backward compatibility with tests
+export const getDocumentByIdHandler = getDocumentById;
+export const upsertDocumentByIdHandler = upsertDocumentById;
+export const deleteDocumentByIdHandler = deleteDocumentById;
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
@@ -180,7 +120,7 @@ export default (server: McpServer, bucket: Bucket) => {
             if (!params || typeof params !== 'object') {
                 throw new Error("Missing required arguments object");
             }
-            return getDocumentByIdHandler(params, bucket);
+            return getDocumentById(params, bucket);
         }
     );
 
@@ -199,7 +139,7 @@ export default (server: McpServer, bucket: Bucket) => {
             if (!params || typeof params !== 'object') {
                 throw new Error("Missing required arguments object");
             }
-            return upsertDocumentByIdHandler(params, bucket);
+            return upsertDocumentById(params, bucket);
         }
     );
 
@@ -215,7 +155,7 @@ export default (server: McpServer, bucket: Bucket) => {
             if (!params || typeof params !== 'object') {
                 throw new Error("Missing required arguments object");
             }
-            return deleteDocumentByIdHandler(params, bucket);
+            return deleteDocumentById(params, bucket);
         }
     );
 };

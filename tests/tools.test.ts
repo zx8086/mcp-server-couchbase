@@ -189,7 +189,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
           scope_name: '',
           collection_name: '',
           document_id: ''
-        })).rejects.toThrow('Missing required parameters');
+        })).rejects.toThrow('Missing required parameter: scope_name');
       });
 
       test("should handle uninitialized bucket in getDocumentById", async () => {
@@ -234,7 +234,7 @@ describe("Couchbase MCP Server Tool Tests", () => {
           scope_name: '',
           collection_name: '',
           document_id: ''
-        })).rejects.toThrow('Missing required parameters');
+        })).rejects.toThrow('Missing required parameter: scope_name');
       });
     });
 
