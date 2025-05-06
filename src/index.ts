@@ -8,12 +8,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { capellaConn } from "./types";
-import tools from "./tools";
 import { AppError } from "./lib/errors";
 import { config } from "./config";
 import { logger } from "./lib/logger";
 import { CouchbaseConnectionManager } from "./lib/connectionManager";
-import { z } from "zod";
+import { ToolRegistry } from "./lib/toolRegistry";
 
 // Application context setup
 class AppContext {
@@ -28,7 +27,7 @@ type ServerDependencies = {
     port?: number;
 };
 
-async function createServer(capellaConn: capellaConn): Promise<McpServer> {
+export async function createServer(capellaConn: capellaConn): Promise<McpServer> {
     const server = new McpServer({
         name: config.server.name,
         version: config.server.version,
@@ -101,15 +100,27 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
             }
         }
     });
-    registerTools(server, capellaConn.defaultBucket);
+    
+    ToolRegistry.registerAll(server, capellaConn.defaultBucket);
     return server;
 }
 
-function registerTools(server: McpServer, bucket: any): void {
-    Object.entries(tools).forEach(([name, toolFn]) => {
-        logger.info(`Registering tool: ${name}`);
-        toolFn(server, bucket);
-    });
+export async function createTransport(deps: ServerDependencies): Promise<Transport> {
+    if (deps.transport === 'sse') {
+        return new SSEServerTransport(deps.port || 8080, "/sse");
+    }
+    return new StdioServerTransport();
+}
+
+function handleServerStartupError(error: unknown): never {
+    if (error instanceof AppError) {
+        logger.error(`Error starting server: ${error.message} (${error.code})`);
+        throw error;
+    } else {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logger.error(`Error starting server: ${err.message}`);
+        throw err;
+    }
 }
 
 // Export startServer for testing
@@ -118,27 +129,12 @@ export async function startServer(deps: ServerDependencies): Promise<void> {
         logger.info("Starting Couchbase MCP Server...");
         const capellaConn = await CouchbaseConnectionManager.getConnection();
         const server = await createServer(capellaConn);
-
-        let transport: Transport;
-        if (deps.transport === 'sse') {
-            transport = new SSEServerTransport(deps.port || 8080, "/sse");
-            logger.info(`Using SSE transport on port ${deps.port || 8080}`);
-        } else {
-            transport = new StdioServerTransport();
-            logger.info("Using stdio transport");
-        }
-
+        const transport = await createTransport(deps);
+        
         await server.connect(transport);
         logger.info(`Couchbase MCP Server running with ${deps.transport} transport`);
     } catch (error) {
-        if (error instanceof AppError) {
-            logger.error(`Error starting server: ${error.message} (${error.code})`);
-            throw error;
-        } else {
-            const err = error instanceof Error ? error : new Error(String(error));
-            logger.error(`Error starting server: ${err.message}`);
-            throw err;
-        }
+        handleServerStartupError(error);
     }
 }
 
