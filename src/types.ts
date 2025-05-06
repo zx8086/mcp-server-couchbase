@@ -4,13 +4,40 @@ import { Cluster, Bucket, Scope, Collection, DocumentNotFoundError, CouchbaseErr
 import type { AppError } from "./lib/errors";
 
 /**
+ * Environment configuration type
+ */
+export type EnvConfig = {
+    MCP_SERVER_NAME?: string;
+    FASTMCP_PORT?: string;
+    MCP_TRANSPORT?: string;
+    READ_ONLY_QUERY_MODE?: string;
+    LOG_LEVEL?: string;
+    COUCHBASE_URL?: string;
+    COUCHBASE_USERNAME?: string;
+    COUCHBASE_PASSWORD?: string;
+    COUCHBASE_BUCKET?: string;
+    COUCHBASE_SCOPE?: string;
+    COUCHBASE_COLLECTION?: string;
+    CN_ROOT?: string;
+    CXXCBC_CACHE_DIR?: string;
+}
+
+/**
+ * Server dependencies type
+ */
+export type ServerDependencies = {
+    transport: 'stdio' | 'sse';
+    port?: number;
+};
+
+/**
  * Application context for the MCP server
  */
 export interface AppContext {
-  cluster: Cluster | null;
-  bucket: Bucket | null;
-  readOnlyQueryMode: boolean;
-  capellaConn: Cluster | null;
+    readOnlyQueryMode: boolean;
+    cluster?: Cluster | null;
+    bucket?: Bucket | null;
+    capellaConn?: Cluster | null;
 }
 
 /**

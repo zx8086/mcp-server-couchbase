@@ -7,7 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
-import type { capellaConn } from "./types";
+import type { capellaConn, AppContext, ServerDependencies } from "./types";
 import { AppError } from "./lib/errors";
 import { config } from "./config";
 import { logger } from "./lib/logger";
@@ -15,17 +15,11 @@ import { CouchbaseConnectionManager } from "./lib/connectionManager";
 import { ToolRegistry } from "./lib/toolRegistry";
 
 // Application context setup
-class AppContext {
+class AppContextImpl implements AppContext {
     constructor(
         public readOnlyQueryMode: boolean = config.server.readOnlyQueryMode
     ) {}
 }
-
-// Server dependencies type
-type ServerDependencies = {
-    transport: 'stdio' | 'sse';
-    port?: number;
-};
 
 export async function createServer(capellaConn: capellaConn): Promise<McpServer> {
     const server = new McpServer({

@@ -2,23 +2,7 @@
 
 import path from "path";
 import { isTruthy } from "./lib/constants";
-
-// Define types for environment variables
-type EnvConfig = {
-    MCP_SERVER_NAME?: string;
-    FASTMCP_PORT?: string;
-    MCP_TRANSPORT?: string;
-    READ_ONLY_QUERY_MODE?: string;
-    LOG_LEVEL?: string;
-    COUCHBASE_URL?: string;
-    COUCHBASE_USERNAME?: string;
-    COUCHBASE_PASSWORD?: string;
-    COUCHBASE_BUCKET?: string;
-    COUCHBASE_SCOPE?: string;
-    COUCHBASE_COLLECTION?: string;
-    CN_ROOT?: string;
-    CXXCBC_CACHE_DIR?: string;
-}
+import type { EnvConfig } from "./types";
 
 // Load and validate all env vars in one place
 const env: EnvConfig = {
