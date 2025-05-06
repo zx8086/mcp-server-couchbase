@@ -28,21 +28,48 @@ const getDocumentById = async (params: any, bucket: Bucket) => {
 
 const upsertDocumentById = async (params: any, bucket: Bucket) => {
     const { scope_name, collection_name, document_id, document_content } = params || {};
-    if (!scope_name || !collection_name || !document_id || !document_content) {
-        throw new Error("Missing required parameters: scope_name, collection_name, document_id, or document_content");
+    
+    // More thorough validation with descriptive messages
+    if (!scope_name) {
+        throw new Error("Missing required parameter: scope_name");
     }
+    if (!collection_name) {
+        throw new Error("Missing required parameter: collection_name");
+    }
+    if (!document_id) {
+        throw new Error("Missing required parameter: document_id");
+    }
+    
+    // Validate document_content specifically
+    if (!document_content) {
+        throw new Error("Missing required parameter: document_content");
+    }
+    if (typeof document_content !== 'object') {
+        throw new Error("document_content must be an object");
+    }
+    if (Object.keys(document_content).length === 0) {
+        throw new Error("document_content cannot be an empty object");
+    }
+    
     if (!bucket) throw new Error("Bucket is not initialized");
     
-    const collection = bucket.scope(scope_name).collection(collection_name);
-    await collection.upsert(document_id, document_content);
-    return {
-        content: [
-            {
-                type: "text" as const,
-                text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
-            }
-        ]
-    };
+    try {
+        const collection = bucket.scope(scope_name).collection(collection_name);
+        await collection.upsert(document_id, document_content);
+        return {
+            content: [
+                {
+                    type: "text" as const,
+                    text: `Successfully upserted document "${document_id}" in collection "${collection_name}" in scope "${scope_name}"`
+                }
+            ]
+        };
+    } catch (error: any) {
+        if (error.message?.includes('scope not found')) {
+            throw new Error(`Scope "${scope_name}" not found. Available scopes: _default, _system, s3, s3rag`);
+        }
+        throw error;
+    }
 };
 
 const deleteDocumentById = async (params: any, bucket: Bucket) => {
@@ -77,7 +104,12 @@ export default (server: McpServer, bucket: Bucket) => {
             collection_name: z.string().describe("Name of the collection"),
             document_id: z.string().describe("ID of the document to retrieve")
         },
-        async (params: any) => getDocumentByIdHandler(params, bucket)
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return getDocumentByIdHandler(params, bucket);
+        }
     );
 
     server.tool(
@@ -87,9 +119,16 @@ export default (server: McpServer, bucket: Bucket) => {
             scope_name: z.string().describe("Name of the scope"),
             collection_name: z.string().describe("Name of the collection"),
             document_id: z.string().describe("ID of the document to upsert"),
-            document_content: z.record(z.any()).describe("Content of the document")
+            document_content: z.record(z.any()).refine(obj => Object.keys(obj).length > 0, {
+                message: "Document content cannot be empty"
+            }).describe("Content of the document")
         },
-        async (params: any) => upsertDocumentByIdHandler(params, bucket)
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return upsertDocumentByIdHandler(params, bucket);
+        }
     );
 
     server.tool(
@@ -100,6 +139,11 @@ export default (server: McpServer, bucket: Bucket) => {
             collection_name: z.string().describe("Name of the collection"),
             document_id: z.string().describe("ID of the document to delete")
         },
-        async (params: any) => deleteDocumentByIdHandler(params, bucket)
+        async (params: any) => {
+            if (!params || typeof params !== 'object') {
+                throw new Error("Missing required arguments object");
+            }
+            return deleteDocumentByIdHandler(params, bucket);
+        }
     );
 };

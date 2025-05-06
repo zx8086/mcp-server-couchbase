@@ -13,6 +13,7 @@ import { AppError } from "./lib/errors";
 import { config } from "./config";
 import { logger } from "./lib/logger";
 import { CouchbaseConnectionManager } from "./lib/connectionManager";
+import { z } from "zod";
 
 // Application context setup
 class AppContext {
@@ -32,7 +33,9 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
         name: config.server.name,
         version: config.server.version,
         capabilities: {
-            resources: {},
+            resources: {
+                list: true
+            },
             tools: {
                 systemPrompt: `I am a Couchbase server interface that helps you interact with Couchbase databases.
                 I can help you:
@@ -42,14 +45,26 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
                 4. Delete documents by ID from specific scopes and collections
                 5. Run SQL++ queries on a scope
                 
-                When using me, please provide specific details about the scope, collection, and operations you want to perform.`,
+                When using me, please provide specific details about the scope, collection, and operations you want to perform.
+                
+                Important: When making tool calls, always include both the tool name and arguments in a single request. For example:
+                {
+                    "method": "tools/call",
+                    "params": {
+                        "name": "tool_name",
+                        "arguments": {
+                            "param1": "value1",
+                            "param2": "value2"
+                        }
+                    }
+                }`,
                 examples: [
                     {
                         input: "Show me all scopes and collections in my bucket",
                         output: {
                             type: "tool_call",
                             name: "get_scopes_and_collections_in_bucket",
-                            parameters: {}
+                            arguments: {}
                         }
                     },
                     {
@@ -57,7 +72,7 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
                         output: {
                             type: "tool_call",
                             name: "get_document_by_id",
-                            parameters: {
+                            arguments: {
                                 scope_name: "main",
                                 collection_name: "users",
                                 document_id: "user_123"
@@ -69,7 +84,7 @@ async function createServer(capellaConn: capellaConn): Promise<McpServer> {
                         output: {
                             type: "tool_call",
                             name: "upsert_document_by_id",
-                            parameters: {
+                            arguments: {
                                 scope_name: "_default",
                                 collection_name: "_default",
                                 document_id: "capella_quote_doc",
