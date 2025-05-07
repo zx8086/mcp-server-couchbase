@@ -14,6 +14,8 @@ import { logger } from "./lib/logger";
 import { CouchbaseConnectionManager } from "./lib/connectionManager";
 import { ToolRegistry } from "./lib/toolRegistry";
 import { registerResourceMethods } from "./lib/resources";
+import { registerResources } from "./lib/resourceHandlers";
+import { registerPrompts } from "./lib/promptHandlers";
 
 // Application context setup
 const appContext: AppContext = {
@@ -90,12 +92,17 @@ export async function createServer(capellaConn: capellaConn): Promise<McpServer>
                         }
                     }
                 ]
-            }
+            },
+            prompts: {} // Add prompts capability
         }
     });
     
+    // Register all components
     ToolRegistry.registerAll(server, capellaConn.defaultBucket);
     registerResourceMethods(server);
+    registerResources(server, capellaConn);
+    registerPrompts(server);
+    
     return server;
 }
 
