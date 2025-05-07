@@ -73,21 +73,52 @@ export function getPromptsList() {
 export function registerResourceMethods(server: McpServer): void {
   // Register as tools
   server.tool(
-    "resources/list",
+    "resources_list",
     "List available resources",
     {},
     async () => {
       resourceLogger.info('Listing available resources');
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(getResourcesList())
+        }]
+      };
+    }
+  );
+
+  server.tool(
+    "prompts_list",
+    "List available prompts",
+    {},
+    async () => {
+      resourceLogger.info('Listing available prompts');
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify(getPromptsList())
+        }]
+      };
+    }
+  );
+
+  // Register as method handlers through tools
+  server.tool(
+    "handle_resources_list",
+    "Handle resources_list method call",
+    {},
+    async () => {
+      resourceLogger.info('Handling resources_list method call');
       return getResourcesList();
     }
   );
 
   server.tool(
-    "prompts/list",
-    "List available prompts",
+    "handle_prompts_list",
+    "Handle prompts_list method call",
     {},
     async () => {
-      resourceLogger.info('Listing available prompts');
+      resourceLogger.info('Handling prompts_list method call');
       return getPromptsList();
     }
   );

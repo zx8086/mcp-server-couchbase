@@ -13,18 +13,18 @@ describe('Resource Methods', () => {
     };
   });
 
-  it('should register resources/list and prompts/list as tools', () => {
+  it('should register resources_list and prompts_list as tools', () => {
     registerResourceMethods(mockServer as unknown as McpServer);
     
     expect(mockServer.tool).toHaveBeenCalledWith(
-      'resources/list',
+      'resources_list',
       expect.any(String),
       expect.any(Object),
       expect.any(Function)
     );
     
     expect(mockServer.tool).toHaveBeenCalledWith(
-      'prompts/list',
+      'prompts_list',
       expect.any(String),
       expect.any(Object),
       expect.any(Function)
