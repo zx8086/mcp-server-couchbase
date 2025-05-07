@@ -93,7 +93,7 @@ export async function createServer(capellaConn: capellaConn): Promise<McpServer>
                     }
                 ]
             },
-            prompts: {} // Add prompts capability
+            prompts: {}
         }
     });
     
