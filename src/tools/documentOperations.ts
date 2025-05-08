@@ -20,15 +20,26 @@ const schema = {
 export default (server: McpServer, bucket: Bucket) => {
     // Get document
     server.tool(
-        "get_document_by_id",
-        schema,
-        async ({ scope_name, collection_name, document_id }) => {
-            if (!bucket) throw createError('DB_ERROR', "Bucket is not initialized");
+        "get_document_by_id",     // Tool name
+        {                         // Parameter schema (simple object)
+            scope_name: "string",
+            collection_name: "string",
+            document_id: "string"
+        },
+        async (params) => {       // Handler function
+            const { scope_name, collection_name, document_id } = params;
+            // Get the document from the database
             const collection = bucket.scope(scope_name).collection(collection_name);
             const result = await collection.get(document_id);
-            return formatDocumentResponse('Get', scope_name, collection_name, document_id, result.content);
+            // Return the response
+            return {
+                content: [{
+                    type: "text",
+                    text: JSON.stringify(result.content, null, 2)
+                }]
+            };
         }
-    );
+    ),
 
     // Upsert document
     server.tool(
