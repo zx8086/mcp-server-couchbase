@@ -10,12 +10,13 @@ import type { Transport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { capellaConn, AppContext } from "./types";
 import { AppError } from "./lib/errors";
 import { config } from "./config";
-import { logger } from "./lib/logger";
+import { logger, createContextLogger } from "./lib/logger";
 import { CouchbaseConnectionManager } from "./lib/connectionManager";
 import { ToolRegistry } from "./lib/toolRegistry";
 import { registerResourceMethods } from "./lib/resources";
 import { registerResources } from "./lib/resourceHandlers";
 import { registerPrompts } from "./lib/promptHandlers";
+import documentOperations from './tools/documentOperations';
 
 // Application context setup
 const appContext: AppContext = {
@@ -99,6 +100,17 @@ export async function createServer(capellaConn: capellaConn): Promise<McpServer>
     
     // Register all components
     ToolRegistry.registerAll(server, capellaConn.defaultBucket);
+    documentOperations(server, capellaConn.defaultBucket);
+    // Register a minimal echo tool for debugging
+    const docLogger = createContextLogger('EchoTool');
+    server.tool(
+        "echo",
+        {},
+        async (params: any) => {
+            docLogger.info("EchoTool RAW params", { raw_params: JSON.stringify(params) });
+            return { content: [{ type: "text", text: JSON.stringify(params) }] };
+        }
+    );
     registerResourceMethods(server);
     registerResources(server, capellaConn);
     registerPrompts(server);

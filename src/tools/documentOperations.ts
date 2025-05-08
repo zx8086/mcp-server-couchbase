@@ -38,6 +38,12 @@ export default (server: McpServer, bucket: Bucket) => {
                         docLogger.error('Bucket not initialized');
                         throw createError('DB_ERROR', "Bucket is not initialized");
                     }
+                    docLogger.info('Accessing collection', {
+                        bucket: bucket.name,
+                        scope: scope_name,
+                        collection: collection_name,
+                        documentId: document_id
+                    });
                     const collection = bucket.scope(scope_name).collection(collection_name);
                     const result = await collection.get(document_id);
                     docLogger.info('Document retrieved successfully', {
@@ -80,10 +86,22 @@ export default (server: McpServer, bucket: Bucket) => {
             return handleOperation(
                 async () => {
                     if (!bucket) {
+                        docLogger.error('Bucket not initialized');
                         throw createError('DB_ERROR', "Bucket is not initialized");
                     }
+                    docLogger.info('Accessing collection', {
+                        bucket: bucket.name,
+                        scope: scope_name,
+                        collection: collection_name,
+                        documentId: document_id
+                    });
                     const collection = bucket.scope(scope_name).collection(collection_name);
                     await collection.upsert(document_id, parsedContent);
+                    docLogger.info('Document upserted successfully', {
+                        scope: scope_name,
+                        collection: collection_name,
+                        documentId: document_id
+                    });
                     return formatDocumentResponse('Upsert', scope_name, collection_name, document_id, parsedContent);
                 },
                 'DB_ERROR',
@@ -108,10 +126,22 @@ export default (server: McpServer, bucket: Bucket) => {
             return handleOperation(
                 async () => {
                     if (!bucket) {
+                        docLogger.error('Bucket not initialized');
                         throw createError('DB_ERROR', "Bucket is not initialized");
                     }
+                    docLogger.info('Accessing collection', {
+                        bucket: bucket.name,
+                        scope: scope_name,
+                        collection: collection_name,
+                        documentId: document_id
+                    });
                     const collection = bucket.scope(scope_name).collection(collection_name);
                     await collection.remove(document_id);
+                    docLogger.info('Document deleted successfully', {
+                        scope: scope_name,
+                        collection: collection_name,
+                        documentId: document_id
+                    });
                     return formatDocumentResponse('Delete', scope_name, collection_name, document_id);
                 },
                 'DB_ERROR',
