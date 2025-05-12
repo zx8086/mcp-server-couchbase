@@ -4,7 +4,6 @@ import path from "path";
 import { isTruthy } from "./lib/constants";
 import type { EnvConfig } from "./types";
 
-// Load and validate all env vars in one place
 const env: EnvConfig = {
     MCP_SERVER_NAME: Bun.env.MCP_SERVER_NAME,
     FASTMCP_PORT: Bun.env.FASTMCP_PORT,
@@ -64,5 +63,4 @@ function validateRequiredConfig() {
     }
 }
 
-// Validate configuration at startup
 validateRequiredConfig();

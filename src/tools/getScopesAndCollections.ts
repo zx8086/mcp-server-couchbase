@@ -12,7 +12,6 @@ const getScopesAndCollectionsHandler = async (_params: {}, bucket: Bucket) => {
         scopesCollections[scope.name] = scope.collections.map(c => c.name);
     }
     
-    // Format the response as human-readable text
     let formattedText = "Here are all the scopes and collections in the bucket:\n\n";
     
     Object.entries(scopesCollections).forEach(([scope, collections]) => {

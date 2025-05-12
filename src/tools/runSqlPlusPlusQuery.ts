@@ -19,10 +19,8 @@ const runQuery = async (params: any, bucket: Bucket) => {
     try {
         const rows = await runSqlPlusPlusQuery({ lifespanContext: { bucket } }, scope_name, query, sqlppParser);
         
-        // Format the response based on query type
         let formattedText = "";
         
-        // Special handling for COUNT DISTINCT query
         if (rows.length === 1 && 'distinct_source_count' in rows[0]) {
             formattedText = `Found ${rows[0].distinct_source_count} distinct sources`;
         } else {

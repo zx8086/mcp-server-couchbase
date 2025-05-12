@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger, createContextLogger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { createError } from "../lib/errors";
-import { z } from "zod"; // Make sure zod is imported like other tools
+import { z } from "zod"; 
 
 const docLogger = createContextLogger("DocumentOps");
 

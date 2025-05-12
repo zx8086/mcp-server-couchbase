@@ -3,13 +3,11 @@
 import { createLogger, format, transports } from 'winston';
 import { config } from '../config';
 
-// Add custom format for structured logging
 const structuredFormat = format.printf(({ level, message, timestamp, ...metadata }) => {
   const meta = Object.keys(metadata).length ? JSON.stringify(metadata) : '';
   return `${timestamp} [${config.server.name}] ${level}: ${message} ${meta}`;
 });
 
-// Export the basic logger
 export const logger = createLogger({
     level: config.log.level,
     format: format.combine(
@@ -22,7 +20,6 @@ export const logger = createLogger({
     transports: [new transports.Console({ stderrLevels: ['info', 'warn', 'error', 'debug', 'verbose', 'silly'] })]
 });
 
-// Function to update logger configuration after config is loaded
 export function configureLogger(logLevel: string) {
     logger.level = logLevel;
     logger.configure({
