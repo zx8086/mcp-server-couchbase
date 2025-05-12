@@ -1,14 +1,14 @@
 /* src/lib/toolRegistry.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import tools from "../tools";
+import { toolRegistry } from "../tools";
 import { logger } from "./logger";
 
 export class ToolRegistry {
     private static registeredTools = new Set<string>();
 
     static registerAll(server: McpServer, bucket: any): void {
-        Object.entries(tools).forEach(([name, toolFn]) => {
+        Object.entries(toolRegistry).forEach(([name, toolFn]) => {
             this.registerTool(server, bucket, name, toolFn);
         });
         
