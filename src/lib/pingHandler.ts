@@ -10,7 +10,6 @@ export function registerPingHandlers(
   server: McpServer,
   capellaConn: capellaConn,
 ): void {
-  // Register protocol-level ping as a tool
   server.tool(
     "ping",
     "Checks the server and database connection status",
@@ -18,7 +17,6 @@ export function registerPingHandlers(
     async () => {
       pingLogger.info("Protocol ping received");
       try {
-        // Check connection status
         if (capellaConn.defaultBucket) {
           try {
             await capellaConn.defaultBucket.ping();

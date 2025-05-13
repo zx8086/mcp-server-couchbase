@@ -20,7 +20,6 @@ export function registerSchemaResource(
       try {
         resourceLogger.info("Fetching schema resource", { scope, collection });
 
-        // Validate scope and collection existence
         const collectionMgr = bucket.collections();
         const scopes = await collectionMgr.getAllScopes();
         const foundScope = scopes.find((s) => s.name === scope);
@@ -52,7 +51,6 @@ export function registerSchemaResource(
           };
         }
 
-        // Try to get a sample document to infer schema
         try {
           const result = await bucket
             .scope(scope)

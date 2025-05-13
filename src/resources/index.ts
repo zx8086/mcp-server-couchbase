@@ -8,7 +8,6 @@ import { registerDocumentResource } from "./documentResource";
 import { registerQueryResource } from "./queryResource";
 
 export function registerAllResources(server: McpServer, bucket: Bucket): void {
-  // Register all Couchbase resources
   registerDatabaseStructureResource(server, bucket);
   registerSchemaResource(server, bucket);
   registerDocumentResource(server, bucket);

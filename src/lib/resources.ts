@@ -5,7 +5,6 @@ import { logger } from "./logger";
 
 const resourceLogger = logger.child({ context: "Resources" });
 
-// Helper functions to generate responses
 export function getResourcesList() {
   return [
     {
@@ -73,7 +72,6 @@ export function getPromptsList() {
 }
 
 export function registerResourceMethods(server: McpServer): void {
-  // Register as tools
   server.tool("resources_list", "List available resources", {}, async () => {
     resourceLogger.info("Listing available resources");
     return {
@@ -98,7 +96,6 @@ export function registerResourceMethods(server: McpServer): void {
     };
   });
 
-  // Register as method handlers through tools
   server.tool(
     "handle_resources_list",
     "Handle resources_list method call",

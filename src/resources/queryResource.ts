@@ -21,7 +21,6 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
 
         resourceLogger.info("Executing query resource", { scope, query });
 
-        // Check if the scope exists
         try {
           const scopes = await bucket.collections().getAllScopes();
           const foundScope = scopes.find((s) => s.name === scope);
@@ -74,11 +73,9 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
             };
           }
 
-          // Execute the query
           const result = await bucket.scope(scope).query(safeQuery);
           const rows = await result.rows;
 
-          // Return the results as JSON
           return {
             contents: [
               {
