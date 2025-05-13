@@ -6,6 +6,7 @@ import runSqlPlusPlusQuery from './runSqlPlusPlusQuery';
 import getDocumentById from './getDocumentById';
 import upsertDocumentById from './upsertDocumentById';
 import deleteDocumentById from './deleteDocumentById';
+import pingServer from './pingServer';
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Bucket } from "couchbase";
 
@@ -17,7 +18,8 @@ export const toolRegistry: Record<string, ToolFunction> = {
     run_sql_plus_plus_query: runSqlPlusPlusQuery,
     get_document_by_id: getDocumentById,
     upsert_document_by_id: upsertDocumentById,
-    delete_document_by_id: deleteDocumentById
+    delete_document_by_id: deleteDocumentById,
+    ping: pingServer
 };
 
 export default toolRegistry;

@@ -630,4 +630,52 @@ describe("Couchbase MCP Server Tool Tests", () => {
       });
     });
   });
+
+  // Ping Server Tests
+  describe("Ping Server Tests", () => {
+    test("should handle ping request with database connection", async () => {
+      const handler = mockServer.registeredTools["ping"].handler;
+      const result = await handler({});
+      
+      expect(result).toBeDefined();
+      expect(result.content[0].type).toBe("text");
+      expect(result.content[0].text).toContain("Pong!");
+    });
+
+    test("should handle ping request without database connection", async () => {
+      const originalBucket = connection.defaultBucket;
+      connection.defaultBucket = null as any;
+
+      try {
+        const handler = mockServer.registeredTools["ping"].handler;
+        const result = await handler({});
+        
+        expect(result).toBeDefined();
+        expect(result.content[0].type).toBe("text");
+        expect(result.content[0].text).toContain("Pong!");
+        expect(result.content[0].text).toContain("not connected to a database");
+      } finally {
+        connection.defaultBucket = originalBucket;
+      }
+    });
+
+    test("should handle ping request with database error", async () => {
+      const originalBucket = connection.defaultBucket;
+      connection.defaultBucket = {
+        ping: () => Promise.reject(new Error("Connection failed"))
+      } as any;
+
+      try {
+        const handler = mockServer.registeredTools["ping"].handler;
+        const result = await handler({});
+        
+        expect(result).toBeDefined();
+        expect(result.content[0].type).toBe("text");
+        expect(result.content[0].text).toContain("Pong!");
+        expect(result.content[0].text).toContain("database connection failed");
+      } finally {
+        connection.defaultBucket = originalBucket;
+      }
+    });
+  });
 }); 
