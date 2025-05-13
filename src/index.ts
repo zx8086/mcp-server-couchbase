@@ -18,6 +18,7 @@ import { registerResources } from "./lib/resourceHandlers";
 import { registerSqlppQueryGenerator } from "./prompts/sqlppQueryGenerator";
 import { registerDatabaseStructureResource } from "./resources/databaseStructureResource";
 import { registerAllResources } from "./resources";
+import { registerPingHandlers } from "./lib/pingHandler";
 
 // Application context setup
 const appContext: AppContext = {
@@ -43,6 +44,9 @@ export async function createServer(capellaConn: any): Promise<McpServer> {
     
     // Register all Couchbase resources
     registerAllResources(server, capellaConn.defaultBucket);
+
+    // Register ping handlers for both protocol and tool usage
+    registerPingHandlers(server, capellaConn);
 
     // Register a minimal echo tool for debugging
     const docLogger = createContextLogger('EchoTool');
