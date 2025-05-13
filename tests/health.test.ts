@@ -16,7 +16,7 @@ describe('Health Checks', () => {
 
     mockCapellaConn = {
       defaultBucket: {
-        name: 'test-bucket',
+        name: 'default',
         collections: () => ({
           getAllScopes: () => Promise.resolve([
             {
