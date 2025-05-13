@@ -1,7 +1,7 @@
 /* tests/resourceHandlers.test.ts */
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
-import { McpServer } from '@modelcontextprotocol/sdk';
+// import { McpServer } from '@modelcontextprotocol/sdk';
 import { registerResources } from '../src/lib/resourceHandlers';
 import type { capellaConn } from '../src/types';
 

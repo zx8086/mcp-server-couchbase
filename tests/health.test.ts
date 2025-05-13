@@ -1,7 +1,7 @@
 /* tests/health.test.ts */
 
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
-import { McpServer } from '@modelcontextprotocol/sdk';
+// import { McpServer } from '@modelcontextprotocol/sdk';
 import { registerHealthChecks } from '../src/lib/health';
 import type { capellaConn } from '../src/types';
 
