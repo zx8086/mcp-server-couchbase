@@ -1,3 +1,5 @@
+/* src/resources/index.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Bucket } from "couchbase";
 import { registerDatabaseStructureResource } from "./databaseStructureResource";
@@ -11,4 +13,4 @@ export function registerAllResources(server: McpServer, bucket: Bucket): void {
   registerSchemaResource(server, bucket);
   registerDocumentResource(server, bucket);
   registerQueryResource(server, bucket);
-} 
+}
