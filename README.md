@@ -1,16 +1,31 @@
 # Couchbase MCP Server (TypeScript/Bun Version)
 
+[![Powered by Bun](https://img.shields.io/badge/Powered%20by-Bun-000000?style=for-the-badge&logo=bun&logoColor=white)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Couchbase](https://img.shields.io/badge/Couchbase-EA2328?style=for-the-badge&logo=couchbase&logoColor=white)](https://www.couchbase.com/)
+
 An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase that allows LLMs to directly interact with Couchbase clusters. This is a TypeScript/Bun implementation of the original Python MCP server.
 
 ## Features
 
-- Get a list of all the scopes and collections in the specified bucket
-- Get the structure for a collection
-- Get a document by ID from a specified scope and collection
-- Upsert a document by ID to a specified scope and collection
-- Delete a document by ID from a specified scope and collection
-- Run a [SQL++ query](https://www.couchbase.com/sqlplusplus/) on a specified scope
-  - There is an option in the MCP server, `READ_ONLY_QUERY_MODE` that is set to true by default to disable running SQL++ queries that change the data or the underlying collection structure. Note that the documents can still be updated by ID.
+### Tools
+- `get_scopes_and_collections`: List all scopes and collections in the specified bucket
+- `get_schema_for_collection`: Get the structure for a collection
+- `get_document_by_id`: Retrieve a document by ID from a specified scope and collection
+- `upsert_document_by_id`: Create or update a document by ID in a specified scope and collection
+- `delete_document_by_id`: Remove a document by ID from a specified scope and collection
+- `run_sql_plus_plus_query`: Execute [SQL++ queries](https://www.couchbase.com/sqlplusplus/) on a specified scope
+
+### Resources
+- Database Structure Resource: Access and manage database structure information
+- Schema Resource: Handle collection schemas and validation
+- Document Resource: Manage document operations and CRUD functionality
+- Query Resource: Handle SQL++ query operations and results
+
+### Security Features
+- `READ_ONLY_QUERY_MODE`: Default enabled setting to prevent SQL++ queries from modifying data
+- Secure document operations through ID-based access
+- Environment-based configuration for sensitive credentials
 
 ## Prerequisites
 
