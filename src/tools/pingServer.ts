@@ -12,46 +12,51 @@ export default function pingServer(server: McpServer, bucket: Bucket): void {
         "Ping the MCP server to check connectivity",
         {},
         async () => {
-            let debugInfo: Record<string, any> = {};
             pingLogger.info("Ping request received");
+
             try {
-                debugInfo.bucketExists = !!bucket;
                 if (bucket) {
-                    await bucket.ping();
-                    pingLogger.info("Ping successful with database connection");
-                    debugInfo.ping = "success";
-                    return {
-                        content: [{
-                            type: "text",
-                            text: "Pong! MCP Server is running and connected to Couchbase."
-                        }],
-                        debug: debugInfo
-                    };
+                    try {
+                        // Try to ping the Couchbase cluster
+                        await bucket.ping();
+                        pingLogger.info("Ping successful with database connection");
+
+                        return {
+                            content: [{
+                                type: "text",
+                                text: "Pong! MCP Server is running and connected to Couchbase."
+                            }]
+                        };
+                    } catch (dbError) {
+                        pingLogger.warn("Database ping failed", { error: dbError });
+
+                        return {
+                            content: [{
+                                type: "text",
+                                text: `Pong! MCP Server is running, but Couchbase connection test failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`
+                            }]
+                        };
+                    }
                 } else {
                     pingLogger.info("Ping successful without database connection");
-                    debugInfo.ping = "no bucket";
+
                     return {
                         content: [{
                             type: "text",
                             text: "Pong! MCP Server is running but not connected to a database."
-                        }],
-                        debug: debugInfo
+                        }]
                     };
                 }
             } catch (error) {
                 pingLogger.error("Error during ping", { error });
-                debugInfo.ping = "error";
-                debugInfo.error = error instanceof Error ? error.message : String(error);
+
                 return {
                     content: [{
                         type: "text",
-                        text: `Pong! MCP Server is running but database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-                    }],
-                    debug: debugInfo
+                        text: `Pong! Server is running but encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`
+                    }]
                 };
             }
         }
     );
-
-    pingLogger.info("Ping handler called");
-} 
+}
