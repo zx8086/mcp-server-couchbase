@@ -15,7 +15,8 @@ import { CouchbaseConnectionManager } from "./lib/connectionManager";
 import { ToolRegistry } from "./lib/toolRegistry";
 import { registerResourceMethods } from "./lib/resources";
 import { registerResources } from "./lib/resourceHandlers";
-import { registerSqlppQueryGenerator } from "./lib/prompts/sqlppQueryGenerator";
+import { registerSqlppQueryGenerator } from "./prompts/sqlppQueryGenerator";
+import { registerDatabaseStructureResource } from "./resources/databaseStructureResource";
 
 // Application context setup
 const appContext: AppContext = {
@@ -26,7 +27,11 @@ export async function createServer(capellaConn: any): Promise<McpServer> {
     const server = new McpServer({
         name: config.server.name,
         version: config.server.version,
-        capabilities: { tools: {} }
+        capabilities: { 
+            tools: {}, 
+            resources: {},
+            prompts: {}
+        }
     });
 
     // Register all tools
@@ -34,6 +39,9 @@ export async function createServer(capellaConn: any): Promise<McpServer> {
     
     // Register our SQL++ query generator prompt
     registerSqlppQueryGenerator(server);
+    
+    // Register just the database structure resource
+    registerDatabaseStructureResource(server, capellaConn.defaultBucket);
 
     // Register a minimal echo tool for debugging
     const docLogger = createContextLogger('EchoTool');

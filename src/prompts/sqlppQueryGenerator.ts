@@ -1,9 +1,10 @@
+/* src/prompts/sqlppQueryGenerator.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { logger } from "../logger";
+import { logger } from "../lib/logger";
 
 export function registerSqlppQueryGenerator(server: McpServer): void {
-  // SQL++ Query Generator - Simple and focused prompt for the most common use case
   server.prompt(
     "generate_sqlpp_query",
     {
