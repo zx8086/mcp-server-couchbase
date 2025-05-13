@@ -36,7 +36,7 @@ const getScopesAndCollectionsHandler = async (_params: {}, bucket: Bucket) => {
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
-        "get_scopes_and_collections_in_bucket",
+        "get_scopes_and_collections",
         "Get all scopes and collections in the bucket",
         {},
         async (params: any) => {

@@ -3,10 +3,9 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { McpServer } from '@modelcontextprotocol/sdk';
 import { registerResources } from '../src/lib/resourceHandlers';
-import { registerPrompts } from '../src/lib/promptHandlers';
 import type { capellaConn } from '../src/types';
 
-describe('Resource and Prompt Handlers', () => {
+describe('Resource Handlers', () => {
   let mockServer: any;
   let mockCapellaConn: capellaConn;
 
@@ -63,52 +62,6 @@ describe('Resource and Prompt Handlers', () => {
       expect(mockServer.tool).toHaveBeenCalledWith(
         'get_bucket_info',
         'Get bucket information',
-        expect.any(Object),
-        expect.any(Function)
-      );
-    });
-  });
-
-  describe('Prompt Handlers', () => {
-    it('should register query generator tool', () => {
-      registerPrompts(mockServer as unknown as McpServer);
-      
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'generate_query',
-        'Generate a SQL++ query based on description',
-        expect.any(Object),
-        expect.any(Function)
-      );
-    });
-
-    it('should register schema analyzer tool', () => {
-      registerPrompts(mockServer as unknown as McpServer);
-      
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'analyze_schema',
-        'Analyze a document schema',
-        expect.any(Object),
-        expect.any(Function)
-      );
-    });
-
-    it('should register document validator tool', () => {
-      registerPrompts(mockServer as unknown as McpServer);
-      
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'validate_document',
-        'Validate a document against best practices',
-        expect.any(Object),
-        expect.any(Function)
-      );
-    });
-
-    it('should register index advisor tool', () => {
-      registerPrompts(mockServer as unknown as McpServer);
-      
-      expect(mockServer.tool).toHaveBeenCalledWith(
-        'advise_indexes',
-        'Suggest optimal indexes for a query',
         expect.any(Object),
         expect.any(Function)
       );

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 import { McpServer } from '@modelcontextprotocol/sdk';
 import { registerResourceMethods } from '../src/lib/resources';
-import { getResourcesList, getPromptsList } from '../src/lib/resources';
+import { getResourcesList } from '../src/lib/resources';
 
 describe('Resource Methods', () => {
   let mockServer: any;
@@ -13,18 +13,11 @@ describe('Resource Methods', () => {
     };
   });
 
-  it('should register resources_list and prompts_list as tools', () => {
+  it('should register resources_list as a tool', () => {
     registerResourceMethods(mockServer as unknown as McpServer);
     
     expect(mockServer.tool).toHaveBeenCalledWith(
       'resources_list',
-      expect.any(String),
-      expect.any(Object),
-      expect.any(Function)
-    );
-    
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'prompts_list',
       expect.any(String),
       expect.any(Object),
       expect.any(Function)
@@ -51,27 +44,5 @@ describe('Resource Methods', () => {
     expect(resourceIds).toContain('scopes-collections');
     expect(resourceIds).toContain('schema');
     expect(resourceIds).toContain('query-engine');
-  });
-
-  it('should return correct prompts list', async () => {
-    const prompts = getPromptsList();
-    expect(prompts).toBeInstanceOf(Array);
-    expect(prompts).toHaveLength(4);
-    
-    // Verify each prompt has required properties
-    prompts.forEach(prompt => {
-      expect(prompt).toHaveProperty('id');
-      expect(prompt).toHaveProperty('name');
-      expect(prompt).toHaveProperty('description');
-      expect(prompt).toHaveProperty('type');
-      expect(prompt).toHaveProperty('capabilities');
-    });
-
-    // Verify specific prompts
-    const promptIds = prompts.map(p => p.id);
-    expect(promptIds).toContain('query-generator');
-    expect(promptIds).toContain('schema-analyzer');
-    expect(promptIds).toContain('document-validator');
-    expect(promptIds).toContain('index-advisor');
   });
 }); 
