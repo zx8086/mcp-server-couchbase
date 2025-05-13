@@ -13,9 +13,10 @@ export function registerSqlppQueryGenerator(server: McpServer): void {
       scope: z.string().optional().describe("The scope name (e.g., 'inventory'). If not provided, '_default' will be used"),
       collection: z.string().describe("The collection name (e.g., 'hotel')"),
       filters: z.string().optional().describe("Any conditions for filtering results"),
-      limit: z.number().optional().describe("Maximum number of results to return")
+      limit: z.string().optional().describe("Maximum number of results to return")
     },
-    ({ description, bucket, scope, collection, filters, limit }) => {
+    (args) => {
+      const { description, bucket, scope, collection, filters, limit } = args;
       // Create fully qualified path with proper backticks
       const fullyQualifiedPath = `\`${bucket}\`.\`${scope || '_default'}\`.\`${collection}\``;
       

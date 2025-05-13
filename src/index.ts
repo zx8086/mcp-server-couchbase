@@ -17,6 +17,7 @@ import { registerResourceMethods } from "./lib/resources";
 import { registerResources } from "./lib/resourceHandlers";
 import { registerSqlppQueryGenerator } from "./prompts/sqlppQueryGenerator";
 import { registerDatabaseStructureResource } from "./resources/databaseStructureResource";
+import { registerAllResources } from "./resources";
 
 // Application context setup
 const appContext: AppContext = {
@@ -40,8 +41,8 @@ export async function createServer(capellaConn: any): Promise<McpServer> {
     // Register our SQL++ query generator prompt
     registerSqlppQueryGenerator(server);
     
-    // Register just the database structure resource
-    registerDatabaseStructureResource(server, capellaConn.defaultBucket);
+    // Register all Couchbase resources
+    registerAllResources(server, capellaConn.defaultBucket);
 
     // Register a minimal echo tool for debugging
     const docLogger = createContextLogger('EchoTool');
