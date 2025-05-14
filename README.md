@@ -139,29 +139,6 @@ bun run dist/mcp_server.js --connection-string='<couchbase_connection_string>' -
 
 The server will be available on http://localhost:8080/sse. This can be used in MCP clients supporting SSE transport mode.
 
-## Docker Image
-
-The MCP server can also be built and run as a Docker container.
-
-```bash
-docker build -t mcp/couchbase-bun .
-```
-
-### Running with Docker
-
-The MCP server can be run with the environment variables being used to configure the Couchbase settings. The environment variables are the same as described in the [Configuration section](#server-configuration-for-mcp-clients)
-
-```bash
-docker run -i \
-  -e CB_CONNECTION_STRING='<couchbase_connection_string>' \
-  -e CB_USERNAME='<database_user>' \
-  -e CB_PASSWORD='<database_password>' \
-  -e CB_BUCKET_NAME='<bucket_name>' \
-  -e MCP_TRANSPORT='stdio/sse' \
-  -e READ_ONLY_QUERY_MODE="true/false" \
-  mcp/couchbase-bun
-```
-
 ### Risks Associated with LLMs
 
 - The use of large language models and similar technology involves risks, including the potential for inaccurate or harmful outputs.
