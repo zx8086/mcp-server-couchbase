@@ -6,6 +6,8 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
+import { ResponseBuilder } from "../lib/responseBuilder";
+import type { DocumentContent } from "../lib/types";
 
 export function registerSchemaResource(
   server: McpServer,
@@ -23,30 +25,14 @@ export function registerSchemaResource(
         const foundScope = scopes.find((s) => s.name === scope);
 
         if (!foundScope) {
-          return {
-            contents: [
-              {
-                uri: uri.href,
-                type: "text/plain",
-                text: `Error: Scope "${scope}" not found`,
-              },
-            ],
-          };
+          return ResponseBuilder.error(`Scope "${scope}" not found`);
         }
 
         const foundCollection = foundScope.collections.find(
           (c) => c.name === collection,
         );
         if (!foundCollection) {
-          return {
-            contents: [
-              {
-                uri: uri.href,
-                type: "text/plain",
-                text: `Error: Collection "${collection}" not found in scope "${scope}"`,
-              },
-            ],
-          };
+          return ResponseBuilder.error(`Collection "${collection}" not found in scope "${scope}"`);
         }
 
         try {
@@ -65,45 +51,16 @@ export function registerSchemaResource(
               .collection(collection)
               .get(docId);
 
-            // Format as a markdown schema
-            let schemaText = `# Schema for ${scope}.${collection}\n\n`;
-            schemaText += formatDocumentAsSchema(docResult.content);
-
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/markdown",
-                  text: schemaText,
-                },
-              ],
-            };
+            const schemaText = formatDocumentAsSchema(docResult.content);
+            return ResponseBuilder.markdown(schemaText);
           } else {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `No documents found in ${scope}.${collection} to infer schema.`,
-                },
-              ],
-            };
+            return ResponseBuilder.error(`No documents found in ${scope}.${collection} to infer schema.`);
           }
         } catch (queryError) {
-          // Handle the case where no primary index exists
-          if (
-            queryError instanceof Error &&
-            queryError.message.includes("index")
-          ) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Error: Unable to query collection. You may need to create a primary index:\nCREATE PRIMARY INDEX ON \`${bucket.name}\`.\`${scope}\`.\`${collection}\`;`,
-                },
-              ],
-            };
+          if (queryError instanceof Error && queryError.message.includes("index")) {
+            return ResponseBuilder.error(
+              `Unable to query collection. You may need to create a primary index:\nCREATE PRIMARY INDEX ON \`${bucket.name}\`.\`${scope}\`.\`${collection}\`;`
+            );
           }
           throw queryError;
         }
@@ -114,15 +71,10 @@ export function registerSchemaResource(
           collection,
         });
 
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              type: "text/plain",
-              text: `Error fetching schema: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-        };
+        return ResponseBuilder.error(
+          "Error fetching schema resource",
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     },
   );
@@ -130,32 +82,27 @@ export function registerSchemaResource(
   logger.info("Schema resource registered successfully");
 }
 
-/**
- * Format a document as a schema description in Markdown
- */
-function formatDocumentAsSchema(doc: any): string {
-  let schemaText = "";
+function formatDocumentAsSchema(doc: DocumentContent): string {
+  let schemaText = "# Schema\n\n";
 
-  const formatField = (key: string, value: any, level: number = 0): string => {
+  const formatField = (key: string, value: unknown, level: number = 0): string => {
     const indent = "  ".repeat(level);
-    const type =
-      value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+    const type = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
 
     let fieldText = `${indent}- **${key}**: ${type}`;
 
     if (type === "object" && value !== null && !Array.isArray(value)) {
       fieldText += "\n";
-      for (const [k, v] of Object.entries(value)) {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
         fieldText += formatField(k, v, level + 1);
       }
-    } else if (type === "array" && value.length > 0) {
+    } else if (type === "array" && Array.isArray(value) && value.length > 0) {
       const firstItem = value[0];
       const itemType = typeof firstItem;
 
       if (itemType === "object" && firstItem !== null) {
         fieldText += ` of objects\n`;
-        // Format first array item as example
-        for (const [k, v] of Object.entries(firstItem)) {
+        for (const [k, v] of Object.entries(firstItem as Record<string, unknown>)) {
           fieldText += formatField(`${key}[0].${k}`, v, level + 1);
         }
       } else {

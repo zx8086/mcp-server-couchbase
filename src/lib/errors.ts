@@ -11,7 +11,8 @@ export type ErrorCode =
     | 'VALIDATION_ERROR'
     | 'CONFIG_ERROR'
     | 'DB_ERROR'
-    | 'UNKNOWN_ERROR';
+    | 'UNKNOWN_ERROR'
+    | 'AUTH_ERROR';
 
 /**
  * Application Error class
@@ -23,7 +24,7 @@ export class AppError extends Error {
         public code: ErrorCode,
         message: string,
         public statusCode: number = 500,
-        public details?: any
+        public details?: unknown
     ) {
         super(message);
         this.name = 'AppError';
@@ -73,7 +74,8 @@ const statusCodes: Record<ErrorCode, number> = {
     'VALIDATION_ERROR': 400,
     'CONFIG_ERROR': 500,
     'DB_ERROR': 500,
-    'UNKNOWN_ERROR': 500
+    'UNKNOWN_ERROR': 500,
+    'AUTH_ERROR': 401
 };
 
 /**
@@ -82,7 +84,7 @@ const statusCodes: Record<ErrorCode, number> = {
  * @param message Error message
  * @param details Additional error details
  */
-export function createError(code: ErrorCode, message: string, details?: any): AppError {
+export function createError(code: ErrorCode, message: string, details?: unknown): AppError {
     return new AppError(code, message, statusCodes[code], details);
 }
 

@@ -6,6 +6,9 @@ import {
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
+import { ResponseBuilder } from "../lib/responseBuilder";
+import type { DocumentContent } from "../lib/types";
+import { createError } from "../lib/errors";
 
 export function registerDocumentResource(
   server: McpServer,
@@ -24,62 +27,14 @@ export function registerDocumentResource(
           id,
         });
 
-        // Get the document
         try {
           const doc = await bucket.scope(scope).collection(collection).get(id);
-
-          // Format as JSON
-          return {
-            contents: [
-              {
-                uri: uri.href,
-                type: "application/json",
-                text: JSON.stringify(doc.content, null, 2),
-              },
-            ],
-          };
-        } catch (docError) {
-          if (
-            docError instanceof Error &&
-            docError.name === "DocumentNotFoundError"
-          ) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Document not found: ${scope}.${collection}.${id}`,
-                },
-              ],
-            };
-          } else if (
-            docError instanceof Error &&
-            docError.message.includes("scope not found")
-          ) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Scope not found: ${scope}`,
-                },
-              ],
-            };
-          } else if (
-            docError instanceof Error &&
-            docError.message.includes("collection not found")
-          ) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Collection not found: ${scope}.${collection}`,
-                },
-              ],
-            };
+          return ResponseBuilder.success(doc.content as DocumentContent, { type: 'json' });
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('not found')) {
+            return ResponseBuilder.error(`Document not found: ${id}`);
           }
-          throw docError;
+          throw error;
         }
       } catch (error) {
         logger.error("Error fetching document resource", {
@@ -89,15 +44,10 @@ export function registerDocumentResource(
           id,
         });
 
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              type: "text/plain",
-              text: `Error fetching document: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-        };
+        return ResponseBuilder.error(
+          "Error fetching document resource",
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     },
   );

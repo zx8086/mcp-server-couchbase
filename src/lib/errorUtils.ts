@@ -1,161 +1,71 @@
 /* src/lib/errorUtils.ts */
 
-import { AppError, createError } from "./errors";
-import type { ErrorCode } from "./errors";
-import type { CouchbaseError } from "couchbase";
-import { createContextLogger } from "./logger";
-import { logger } from "./logger";
+import { logger } from './logger';
+import { createError } from './errors';
+import type { OperationResult } from './types';
 
-function getErrorLogger() {
-  const { createContextLogger } = require("./logger");
-  return createContextLogger("ErrorHandler");
+export interface CouchbaseError extends Error {
+  code?: number;
+  cause?: Error;
 }
 
-/**
- * Generic error handler for async operations
- * @param operation The operation to execute
- * @param errorCode The error code to use if the operation fails
- * @param operationName A descriptive name for the operation
- * @param metadata Additional metadata to include in the error
- */
+export function isCouchbaseError(error: unknown): error is CouchbaseError {
+  return error instanceof Error && 'code' in error;
+}
+
 export async function handleOperation<T>(
   operation: () => Promise<T>,
-  errorCode: ErrorCode,
+  errorCode: string,
   operationName: string,
-  context: Record<string, any> = {},
-): Promise<T> {
+  context: Record<string, unknown> = {}
+): Promise<OperationResult<T>> {
   try {
-    return await operation();
-  } catch (error: unknown) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const result = await operation();
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
     logger.error(`Error during ${operationName}`, {
-      metadata: {
-        service: "couchbase-capella-mcp",
-        context: "ErrorHandler",
-        error: errorMessage,
-        ...context,
-      },
+      error: error instanceof Error ? error.message : String(error),
+      ...context
     });
 
-    throw createError(
-      errorCode,
-      `Error during ${operationName}: ${errorMessage}`,
-    );
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error(String(error))
+    };
   }
 }
 
-export function handleCouchbaseError(
-  error: Error,
-  params?: { document_id?: string; operation?: string },
-): never {
-  if (error instanceof AppError) {
-    const errorLogger = getErrorLogger();
-    errorLogger.debug("Handling AppError", {
-      code: error.code,
-      message: error.message,
-      details: error.details,
-    });
-    throw error;
-  }
-
-  const operation = params?.operation || "database operation";
-
-  if (operation === "upserting document") {
-    const errorLogger = getErrorLogger();
-    if (error.message.includes("Cannot convert undefined or null to object")) {
-      errorLogger.warn("Invalid document content", {
-        operation,
-        documentId: params?.document_id,
-        error: error.message,
-      });
-      throw createError(
-        "VALIDATION_ERROR",
-        "Invalid document content: document must be a non-empty object",
-      );
+export function handleAppError(error: unknown): never {
+  if (error instanceof Error) {
+    if (error.message.includes('document not found')) {
+      logger.warn("Document not found", { error });
+      throw createError('DOCUMENT_NOT_FOUND', error.message);
     }
-    if (error.message.includes("scope not found")) {
-      errorLogger.warn("Invalid scope name", {
-        operation,
-        documentId: params?.document_id,
-        error: error.message,
-      });
-      throw createError(
-        "VALIDATION_ERROR",
-        "Invalid scope name. Available scopes: _default, _system, s3, s3rag",
-      );
+    if (error.message.includes('invalid scope')) {
+      logger.warn("Invalid scope name", { error });
+      throw createError('VALIDATION_ERROR', error.message);
     }
-    if (error.message.includes("collection not found")) {
-      errorLogger.warn("Invalid collection name", {
-        operation,
-        documentId: params?.document_id,
-        error: error.message,
-      });
-      throw createError(
-        "VALIDATION_ERROR",
-        "Invalid collection name. Please check the collection exists in the specified scope",
-      );
+    if (error.message.includes('invalid collection')) {
+      logger.warn("Invalid collection name", { error });
+      throw createError('VALIDATION_ERROR', error.message);
+    }
+    if (error.message.includes('authentication failed')) {
+      logger.error("Authentication failed", { error });
+      throw createError('AUTH_ERROR', error.message);
+    }
+    if (error.message.includes('query')) {
+      logger.error("Query error", { error });
+      throw createError('QUERY_ERROR', error.message);
+    }
+    if (error.message.includes('validation')) {
+      logger.warn("Validation error", { error });
+      throw createError('VALIDATION_ERROR', error.message);
     }
   }
 
-  if (error.name === "AuthenticationError") {
-    const errorLogger = getErrorLogger();
-    errorLogger.error("Authentication failed", {
-      operation,
-      documentId: params?.document_id,
-      error: error.message,
-    });
-    throw createError(
-      "DB_ERROR",
-      "Authentication failed. Please check your credentials",
-    );
-  }
-
-  if (error.name === "DocumentNotFoundError") {
-    const errorLogger = getErrorLogger();
-    errorLogger.warn("Document not found", {
-      operation,
-      documentId: params?.document_id,
-    });
-    throw createError(
-      "DOCUMENT_NOT_FOUND",
-      `Document with ID ${params?.document_id || "unknown"} not found`,
-    );
-  }
-
-  if (error.name === "QueryError") {
-    const errorLogger = getErrorLogger();
-    errorLogger.error("Query error", {
-      operation,
-      documentId: params?.document_id,
-      error: error.message,
-    });
-    throw createError("QUERY_ERROR", `Query error: ${error.message}`);
-  }
-
-  if (error.name === "ValidationError") {
-    const errorLogger = getErrorLogger();
-    errorLogger.warn("Validation error", {
-      operation,
-      documentId: params?.document_id,
-      error: error.message,
-    });
-    throw createError("VALIDATION_ERROR", `Validation error: ${error.message}`);
-  }
-
-  const errorLogger = getErrorLogger();
-  errorLogger.error("Unhandled database error", {
-    operation,
-    documentId: params?.document_id,
-    error: error.message,
-    errorName: error.name,
-  });
-  throw createError("DB_ERROR", `Database error: ${error.message}`);
-}
-
-export function isCouchbaseError(error: any): error is CouchbaseError {
-  return error && typeof error === "object" && "name" in error;
+  logger.error("Unhandled database error", { error });
+  throw createError('DB_ERROR', 'An unexpected database error occurred');
 }

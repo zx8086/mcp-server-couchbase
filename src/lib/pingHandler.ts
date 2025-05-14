@@ -17,29 +17,43 @@ export function registerPingHandlers(server: McpServer, capellaConn: CapellaConn
         try {
           if (!capellaConn.defaultBucket) {
             return {
-              status: "error",
-              message: "Server is running but not connected to a database.",
+              content: [
+                {
+                  type: "text",
+                  text: "Server is running but not connected to a database."
+                }
+              ]
             };
           }
           await capellaConn.defaultBucket.ping();
           return {
-            status: "ok",
-            message: "Server and database are healthy",
+            content: [
+              {
+                type: "text",
+                text: "Server and database are healthy"
+              }
+            ]
           };
         } catch (error) {
           logger.warn("Database ping failed", { error });
           return {
-            status: "error",
-            message: "Server is running but database connection failed",
-            error: error instanceof Error ? error.message : String(error),
+            content: [
+              {
+                type: "text",
+                text: `Server is running but database connection failed. ${error instanceof Error ? error.message : String(error)}`
+              }
+            ]
           };
         }
       } catch (error) {
         logger.error("Error during ping", { error });
         return {
-          status: "error",
-          message: "Server error during ping",
-          error: error instanceof Error ? error.message : String(error),
+          content: [
+            {
+              type: "text",
+              text: `Server error during ping. ${error instanceof Error ? error.message : String(error)}`
+            }
+          ]
         };
       }
     }

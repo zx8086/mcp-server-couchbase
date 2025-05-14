@@ -1,4 +1,4 @@
-/* src/resource/queryResource.ts */
+/* src/resources/queryResource.ts */
 
 import {
   McpServer,
@@ -7,6 +7,9 @@ import {
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { sqlppParser } from "../lib/sqlppParser";
+import { ResponseBuilder } from "../lib/responseBuilder";
+import type { QueryParams, QueryResult } from "../lib/types";
+import { createError } from "../lib/errors";
 
 export function registerQueryResource(server: McpServer, bucket: Bucket): void {
   server.resource(
@@ -14,86 +17,42 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
     new ResourceTemplate("query://{scope}/{encodedQuery}", { list: undefined }),
     async (uri, { scope, encodedQuery }) => {
       try {
-        // Decode the query
         const query = decodeURIComponent(encodedQuery);
-
         logger.info("Executing query resource", { scope, query });
 
         try {
           const scopes = await bucket.collections().getAllScopes();
           const foundScope = scopes.find((s) => s.name === scope);
+          
           if (!foundScope) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Scope not found: ${scope}`,
-                },
-              ],
-            };
+            return ResponseBuilder.error(`Scope not found: ${scope}`);
           }
 
-          // Execute the query (limit to select queries for safety)
           const upperQuery = query.trim().toUpperCase();
           if (!upperQuery.startsWith("SELECT")) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: "Error: Only SELECT queries are allowed via the query resource",
-                },
-              ],
-            };
+            return ResponseBuilder.error("Only SELECT queries are allowed via the query resource");
           }
 
-          // Add a LIMIT if not present to prevent accidental large result sets
           let safeQuery = query;
           if (!upperQuery.includes("LIMIT")) {
             safeQuery = `${query} LIMIT 100`;
           }
 
-          // Check if this is a data or structure modification query
           const parsedQuery = sqlppParser.parse(safeQuery);
           if (
             sqlppParser.modifiesData(parsedQuery) ||
             sqlppParser.modifiesStructure(parsedQuery)
           ) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: "Error: Modification queries are not allowed via the query resource",
-                },
-              ],
-            };
+            return ResponseBuilder.error("Modification queries are not allowed via the query resource");
           }
 
           const result = await bucket.scope(scope).query(safeQuery);
           const rows = await result.rows;
 
-          return {
-            contents: [
-              {
-                uri: uri.href,
-                type: "application/json",
-                text: JSON.stringify(rows, null, 2),
-              },
-            ],
-          };
+          return ResponseBuilder.success(rows, { type: 'json' });
         } catch (queryError) {
           if (queryError instanceof Error) {
-            return {
-              contents: [
-                {
-                  uri: uri.href,
-                  type: "text/plain",
-                  text: `Query error: ${queryError.message}`,
-                },
-              ],
-            };
+            return ResponseBuilder.error("Query execution failed", queryError);
           }
           throw queryError;
         }
@@ -104,15 +63,10 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
           encodedQuery,
         });
 
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              type: "text/plain",
-              text: `Error executing query: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-        };
+        return ResponseBuilder.error(
+          "Error executing query",
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     },
   );

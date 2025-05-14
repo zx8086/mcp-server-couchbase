@@ -1,26 +1,34 @@
 /* src/resources/databaseStructureResource.ts */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
+import { ResponseBuilder } from "../lib/responseBuilder";
+import type { BucketInfo, ScopeInfo } from "../lib/types";
 
 export function registerDatabaseStructureResource(
   server: McpServer,
   bucket: Bucket,
 ): void {
-  // Define a static resource - simple URI without parameters
   server.resource(
-    "database-structure", // Name of the resource
-    "database://structure", // URI for the resource
-
-    // Resource handler function
+    "database-structure",
+    new ResourceTemplate("database://structure", { list: undefined }),
     async (uri) => {
       try {
         logger.info("Fetching database structure resource");
 
         const scopes = await bucket.collections().getAllScopes();
+        const bucketInfo: BucketInfo = {
+          name: bucket.name,
+          scopes: scopes.map(scope => ({
+            name: scope.name,
+            collections: scope.collections.map(coll => ({
+              name: coll.name,
+              type: 'document' // Default type since CollectionSpec doesn't expose type
+            }))
+          }))
+        };
 
-        // Format as markdown for better readability
         let structureText = "# Couchbase Database Structure\n\n";
         structureText += `## Bucket: ${bucket.name}\n\n`;
 
@@ -41,7 +49,6 @@ export function registerDatabaseStructureResource(
           for (const coll of scope.collections) {
             totalCollections++;
             structureText += `- **${coll.name}**\n`;
-
             structureText += `  - Schema URI: \`schema://${scope.name}/${coll.name}\`\n`;
             structureText += `  - Document URI format: \`document://${scope.name}/${coll.name}/{id}\`\n\n`;
           }
@@ -52,13 +59,11 @@ export function registerDatabaseStructureResource(
         structureText += `- Total Collections: ${totalCollections}\n`;
 
         return {
-          contents: [
-            {
-              uri: uri.href,
-              type: "text/markdown",
-              text: structureText,
-            },
-          ],
+          contents: [{
+            uri: uri.href,
+            type: "text/markdown",
+            text: structureText
+          }]
         };
       } catch (error) {
         logger.error("Error fetching database structure", {
@@ -66,13 +71,11 @@ export function registerDatabaseStructureResource(
         });
 
         return {
-          contents: [
-            {
-              uri: uri.href,
-              type: "text/plain",
-              text: `Error fetching database structure: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
+          contents: [{
+            uri: uri.href,
+            type: "text/plain",
+            text: `Error fetching database structure: ${error instanceof Error ? error.message : String(error)}`
+          }]
         };
       }
     },
