@@ -75,13 +75,49 @@ This is the common configuration for the MCP clients such as Claude Desktop, Cur
         "--directory",
         "path/to/cloned/repo/mcp-server-couchbase-bun/",
         "run",
-        "dist/mcp_server.js"
+        "dist/index.js"
       ],
       "env": {
         "CB_CONNECTION_STRING": "couchbases://connection-string",
         "CB_USERNAME": "username",
         "CB_PASSWORD": "password",
         "CB_BUCKET_NAME": "bucket_name"
+      }
+    }
+  }
+}
+```
+
+#### Alternative Batch File Configuration
+
+You can also use a batch file configuration for easier setup. Create a shell script (e.g., `start-mcp-couchbase-server.sh`) with the following content:
+
+```bash
+#!/bin/bash
+cd /path/to/mcp-server-couchbase
+bun run dist/index.js
+```
+
+Make the script executable:
+```bash
+chmod +x start-mcp-couchbase-server.sh
+```
+
+Then use this configuration in your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "couchbase-capella-mcp": {
+      "command": "/path/to/start-mcp-couchbase-server.sh",
+      "args": [],
+      "env": {
+        "COUCHBASE_URL": "couchbases://your-cluster-url",
+        "COUCHBASE_USERNAME": "your-username",
+        "COUCHBASE_PASSWORD": "your-password",
+        "COUCHBASE_BUCKET": "your-bucket",
+        "COUCHBASE_SCOPE": "your-scope",
+        "COUCHBASE_COLLECTION": "your-collection"
       }
     }
   }
