@@ -69,7 +69,7 @@ This is the common configuration for the MCP clients such as Claude Desktop, Cur
 ```json
 {
   "mcpServers": {
-    "couchbase": {
+    "couchbase-capella-mcp": {
       "command": "bun",
       "args": [
         "--directory",
