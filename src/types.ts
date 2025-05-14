@@ -37,23 +37,23 @@ export interface AppContext {
     readOnlyQueryMode: boolean;
     cluster?: Cluster | null;
     bucket?: Bucket | null;
-    capellaConn?: Cluster | null;
+    capellaConn?: CapellaConn | null;
 }
 
 /**
  * Settings for the MCP server
  */
 export interface ServerSettings {
-  connectionString: string;
-  username: string;
-  password: string;
-  bucketName: string;
-  readOnlyQueryMode: boolean;
-  transport: string;
-  name: string;
-  version: string;
-  port: number;
-  transportMode: 'stdio' | 'sse';
+    connectionString: string;
+    username: string;
+    password: string;
+    bucketName: string;
+    readOnlyQueryMode: boolean;
+    transport: string;
+    name: string;
+    version: string;
+    port: number;
+    transportMode: 'stdio' | 'sse';
 }
 
 /**
@@ -89,17 +89,25 @@ export interface Transport {
 }
 
 /**
- * Interface for Couchbase Capella connection
+ * Enhanced Couchbase connection with default resources
+ * and helper methods
  */
-export interface capellaConn {
-  cluster: Cluster;
-  bucket: (name: string) => Bucket;
-  scope: (bucket: string, name: string) => Scope;
-  collection: (bucket: string, scope: string, name: string) => Collection;
-  defaultBucket: Bucket;
-  defaultScope: Scope;
-  defaultCollection: Collection;
-  CouchbaseError: typeof CouchbaseError;
+export interface CapellaConn {
+    // Base cluster
+    cluster: Cluster;
+    
+    // Default resources
+    defaultBucket: Bucket;
+    defaultScope: Scope;
+    defaultCollection: Collection;
+    
+    // Helper methods for resource access
+    bucket: (name: string) => Bucket;
+    scope: (bucket: string, name: string) => Scope;
+    collection: (bucket: string, scope: string, name: string) => Collection;
+    
+    // Error type for instanceof checks
+    CouchbaseError: typeof CouchbaseError;
 }
 
 /**

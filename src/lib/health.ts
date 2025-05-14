@@ -3,12 +3,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { logger } from "./logger";
-import type { capellaConn } from "../types";
+import type { CapellaConn } from "../types";
 import { createMcpError, MCP_ERROR_CODES } from "./mcpErrors";
 
 export function registerHealthChecks(
   server: McpServer,
-  capellaConn: capellaConn,
+  capellaConn: CapellaConn,
 ): void {
   server.tool(
     "health_check",

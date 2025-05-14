@@ -18,13 +18,15 @@ function getErrorLogger() {
  * @param operationName A descriptive name for the operation
  * @param metadata Additional metadata to include in the error
  */
-export function handleOperation<T>(
+export async function handleOperation<T>(
   operation: () => Promise<T>,
   errorCode: ErrorCode,
   operationName: string,
   context: Record<string, any> = {},
 ): Promise<T> {
-  return operation().catch((error: unknown) => {
+  try {
+    return await operation();
+  } catch (error: unknown) {
     if (error instanceof AppError) {
       throw error;
     }
@@ -43,7 +45,7 @@ export function handleOperation<T>(
       errorCode,
       `Error during ${operationName}: ${errorMessage}`,
     );
-  });
+  }
 }
 
 export function handleCouchbaseError(

@@ -5,6 +5,24 @@ import { isTruthy } from "./lib/constants";
 import type { EnvConfig } from "./types";
 import { validateCouchbaseConfigOrExit } from "./lib/configValidation";
 
+// Default configuration values
+const DEFAULT_CONFIG = {
+    SERVER: {
+        NAME: "couchbase-mcp-server",
+        VERSION: "1.0.0",
+        PORT: 8080,
+        TRANSPORT_MODE: "stdio"
+    },
+    LOG: {
+        LEVEL: "info",
+        FORMAT: "json",
+        TIMESTAMP: true
+    },
+    PATHS: {
+        CXXCBC_CACHE: "/usr/src/app/deps/couchbase-cxx-cache"
+    }
+} as const;
+
 const env: EnvConfig = {
     MCP_SERVER_NAME: Bun.env.MCP_SERVER_NAME,
     FASTMCP_PORT: Bun.env.FASTMCP_PORT,
@@ -23,16 +41,16 @@ const env: EnvConfig = {
 
 export const config = {
     server: {
-        name: env.MCP_SERVER_NAME || "couchbase-mcp-server",
-        version: "1.0.0",
-        port: parseInt(env.FASTMCP_PORT || "8080"),
-        transportMode: env.MCP_TRANSPORT || "stdio",
+        name: env.MCP_SERVER_NAME || DEFAULT_CONFIG.SERVER.NAME,
+        version: DEFAULT_CONFIG.SERVER.VERSION,
+        port: parseInt(env.FASTMCP_PORT || DEFAULT_CONFIG.SERVER.PORT.toString()),
+        transportMode: env.MCP_TRANSPORT || DEFAULT_CONFIG.SERVER.TRANSPORT_MODE,
         readOnlyQueryMode: isTruthy(env.READ_ONLY_QUERY_MODE)
     },
     log: {
-        level: env.LOG_LEVEL || "info",
-        format: "json",
-        timestamp: true
+        level: env.LOG_LEVEL || DEFAULT_CONFIG.LOG.LEVEL,
+        format: DEFAULT_CONFIG.LOG.FORMAT,
+        timestamp: DEFAULT_CONFIG.LOG.TIMESTAMP
     },
     couchbase: {
         url: env.COUCHBASE_URL,
@@ -44,7 +62,7 @@ export const config = {
     },
     paths: {
         root: env.CN_ROOT || path.resolve(import.meta.dir, ".."),
-        cxxcbcCache: env.CXXCBC_CACHE_DIR || "/usr/src/app/deps/couchbase-cxx-cache"
+        cxxcbcCache: env.CXXCBC_CACHE_DIR || DEFAULT_CONFIG.PATHS.CXXCBC_CACHE
     }
 };
 

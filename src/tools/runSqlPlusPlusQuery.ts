@@ -9,7 +9,19 @@ import { sqlppParser } from "../lib/sqlppParser";
 import { handleOperation } from "../lib/errorUtils";
 import { createError } from "../lib/errors";
 
-const runQuery = async (params: any, bucket: Bucket) => {
+interface SqlQueryParams {
+    scope_name: string;
+    query: string;
+}
+
+interface QueryResponse {
+    content: Array<{
+        type: "text";
+        text: string;
+    }>;
+}
+
+const runQuery = async (params: SqlQueryParams, bucket: Bucket): Promise<QueryResponse> => {
     if (!bucket) {
         throw createError('DB_ERROR', "Database error: bucket not found");
     }

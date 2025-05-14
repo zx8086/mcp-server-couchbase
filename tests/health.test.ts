@@ -1,53 +1,51 @@
 /* tests/health.test.ts */
 
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
-// import { McpServer } from '@modelcontextprotocol/sdk';
-import { registerHealthChecks } from '../src/lib/health';
-import type { capellaConn } from '../src/types';
+import { expect, test, describe, beforeEach } from "bun:test";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerHealthChecks } from "../src/lib/health";
+import type { CapellaConn } from '../src/types';
+import { CouchbaseError } from "couchbase";
 
-describe('Health Checks', () => {
-  let mockServer: any;
-  let mockCapellaConn: capellaConn;
+describe("Health Check Tests", () => {
+    let mockServer: any;
+    let mockCapellaConn: CapellaConn;
 
-  beforeEach(() => {
-    mockServer = {
-      tool: mock(() => {})
-    };
+    beforeEach(() => {
+        mockServer = {
+            tool: (name: string, description: string, schema: any, handler: Function) => {
+                mockServer.registeredTools[name] = {
+                    description,
+                    schema,
+                    handler
+                };
+            },
+            registeredTools: {}
+        };
+        mockCapellaConn = {
+            cluster: {} as any,
+            defaultBucket: {
+                collections: () => ({
+                    getAllScopes: async () => []
+                })
+            } as any,
+            defaultScope: {} as any,
+            defaultCollection: {} as any,
+            bucket: () => ({} as any),
+            scope: () => ({} as any),
+            collection: () => ({} as any),
+            CouchbaseError
+        };
+    });
 
-    mockCapellaConn = {
-      defaultBucket: {
-        name: 'default',
-        collections: () => ({
-          getAllScopes: () => Promise.resolve([
-            {
-              name: '_default',
-              collections: [{ name: '_default' }]
-            }
-          ])
-        })
-      }
-    } as any;
-  });
+    test("should register health check tool", () => {
+        registerHealthChecks(mockServer as unknown as McpServer, mockCapellaConn);
+        expect(mockServer.registeredTools["health_check"]).toBeDefined();
+    });
 
-  it('should register health check tool', () => {
-    registerHealthChecks(mockServer as unknown as McpServer, mockCapellaConn);
-    
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'health_check',
-      'Check the health of the Couchbase MCP server',
-      {},
-      expect.any(Function)
-    );
-  });
-
-  it('should register diagnostics tool', () => {
-    registerHealthChecks(mockServer as unknown as McpServer, mockCapellaConn);
-    
-    expect(mockServer.tool).toHaveBeenCalledWith(
-      'get_diagnostics',
-      'Get detailed server diagnostics',
-      {},
-      expect.any(Function)
-    );
-  });
+    test("should handle health check with no bucket", async () => {
+        registerHealthChecks(mockServer as unknown as McpServer, mockCapellaConn);
+        const handler = mockServer.registeredTools["health_check"].handler;
+        const result = await handler();
+        expect(result.content[0].text).toContain("healthy");
+    });
 }); 

@@ -2,12 +2,12 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./logger";
-import type { capellaConn } from "../types";
+import type { CapellaConn } from "../types";
 import { createError } from "./errors";
 
 export function registerResources(
   server: McpServer,
-  capellaConn: capellaConn,
+  capellaConn: CapellaConn,
 ): void {
   server.tool("get_server_info", "Get server information", {}, async () => ({
     content: [

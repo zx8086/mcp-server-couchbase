@@ -3,12 +3,12 @@
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
 import { getCluster } from "../src/lib/couchbaseConnector";
 import { logger } from "../src/lib/logger";
-import type { capellaConn } from "../src/types";
+import type { CapellaConn } from "../src/types";
 import { MockMcpServer } from "./tools.test";
 import toolRegistry from "../src/tools";
 
 describe("Edge Cases and Error Scenarios", () => {
-  let connection: capellaConn;
+  let connection: CapellaConn;
   let mockServer: MockMcpServer;
   const TEST_DOC_ID = "edge_case_test_doc";
 
