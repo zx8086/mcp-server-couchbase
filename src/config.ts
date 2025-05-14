@@ -51,6 +51,8 @@ function validateRequiredConfig() {
         { key: 'couchbase.username', value: config.couchbase.username },
         { key: 'couchbase.password', value: config.couchbase.password },
         { key: 'couchbase.bucket', value: config.couchbase.bucket },
+        { key: 'couchbase.scope', value: config.couchbase.scope },
+        { key: 'couchbase.collection', value: config.couchbase.collection }
     ];
     
     const missingFields = requiredFields
