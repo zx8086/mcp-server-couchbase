@@ -1,9 +1,7 @@
 /* src/lib/sqlppParser.ts */
 
 import type { SQLPPParser, ASTNode } from "../types";
-import { createContextLogger } from "./logger";
-
-const sqlLogger = createContextLogger("SQLParser");
+import { logger } from "./logger";
 
 export class SQLPPParserImpl implements SQLPPParser {
   private readonly dataModificationKeywords = new Set([
@@ -24,10 +22,10 @@ export class SQLPPParserImpl implements SQLPPParser {
 
   parse(query: string): ASTNode {
     const cleanedQuery = this.removeComments(query).toUpperCase();
-    sqlLogger.debug("Parsing SQL++ query", { queryLength: query.length });
+    logger.debug("Parsing SQL++ query", { queryLength: query.length });
 
     const firstKeyword = cleanedQuery.split(/\s+/)[0];
-    sqlLogger.debug("Query analysis", { firstKeyword });
+    logger.debug("Query analysis", { firstKeyword });
 
     return {
       type: "ROOT",
@@ -42,7 +40,7 @@ export class SQLPPParserImpl implements SQLPPParser {
     );
 
     if (result) {
-      sqlLogger.debug("Query identified as data modification query");
+      logger.debug("Query identified as data modification query");
     }
 
     return result;
@@ -55,7 +53,7 @@ export class SQLPPParserImpl implements SQLPPParser {
     );
 
     if (result) {
-      sqlLogger.debug("Query identified as structure modification query");
+      logger.debug("Query identified as structure modification query");
     }
 
     return result;

@@ -6,8 +6,6 @@ import { logger } from "./logger";
 import type { capellaConn } from "../types";
 import { createMcpError, MCP_ERROR_CODES } from "./mcpErrors";
 
-const healthLogger = logger.child({ context: "Health" });
-
 export function registerHealthChecks(
   server: McpServer,
   capellaConn: capellaConn,
@@ -17,7 +15,7 @@ export function registerHealthChecks(
     "Check the health of the Couchbase MCP server",
     {},
     async () => {
-      healthLogger.info("Running health check");
+      logger.info("Running health check");
 
       try {
         if (!capellaConn.defaultBucket) {
@@ -38,7 +36,7 @@ export function registerHealthChecks(
           ],
         };
       } catch (error) {
-        healthLogger.error("Health check failed", { error });
+        logger.error("Health check failed", { error });
         throw error;
       }
     },
@@ -49,7 +47,7 @@ export function registerHealthChecks(
     "Get detailed server diagnostics",
     {},
     async () => {
-      healthLogger.info("Running diagnostics");
+      logger.info("Running diagnostics");
 
       try {
         const diagnostics = {
@@ -84,11 +82,11 @@ export function registerHealthChecks(
           ],
         };
       } catch (error) {
-        healthLogger.error("Diagnostics failed", { error });
+        logger.error("Diagnostics failed", { error });
         throw error;
       }
     },
   );
 
-  healthLogger.info("Health checks registered successfully");
+  logger.info("Health checks registered successfully");
 }

@@ -3,6 +3,7 @@
 import path from "path";
 import { isTruthy } from "./lib/constants";
 import type { EnvConfig } from "./types";
+import { validateCouchbaseConfigOrExit } from "./lib/configValidation";
 
 const env: EnvConfig = {
     MCP_SERVER_NAME: Bun.env.MCP_SERVER_NAME,
@@ -29,7 +30,9 @@ export const config = {
         readOnlyQueryMode: isTruthy(env.READ_ONLY_QUERY_MODE)
     },
     log: {
-        level: env.LOG_LEVEL || "info"
+        level: env.LOG_LEVEL || "info",
+        format: "json",
+        timestamp: true
     },
     couchbase: {
         url: env.COUCHBASE_URL,
@@ -46,23 +49,7 @@ export const config = {
 };
 
 function validateRequiredConfig() {
-    const requiredFields = [
-        { key: 'couchbase.url', value: config.couchbase.url },
-        { key: 'couchbase.username', value: config.couchbase.username },
-        { key: 'couchbase.password', value: config.couchbase.password },
-        { key: 'couchbase.bucket', value: config.couchbase.bucket },
-        { key: 'couchbase.scope', value: config.couchbase.scope },
-        { key: 'couchbase.collection', value: config.couchbase.collection }
-    ];
-    
-    const missingFields = requiredFields
-        .filter(field => !field.value)
-        .map(field => field.key);
-        
-    if (missingFields.length > 0) {
-        console.error(`Missing required configuration: ${missingFields.join(', ')}`);
-        process.exit(1);
-    }
+    validateCouchbaseConfigOrExit(config.couchbase);
 }
 
 validateRequiredConfig();

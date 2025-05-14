@@ -181,3 +181,12 @@ export interface ToolResponse {
     text: string;
   }>;
 }
+
+export interface CouchbaseConfig {
+  url?: string;
+  username?: string;
+  password?: string;
+  bucket?: string;
+  scope?: string;
+  collection?: string;
+}

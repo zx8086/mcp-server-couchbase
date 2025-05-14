@@ -1,11 +1,9 @@
 /* src/lib/runSqlPlusPlusQuery.ts */
 
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { SQLPPParser } from "../types";
 import { createError } from "./errors";
 import { handleOperation } from "./errorUtils";
-
-const queryLogger = createContextLogger('QueryEngine');
 
 export async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: string, sqlppParser: SQLPPParser): Promise<any[]> {
     return handleOperation(
@@ -14,11 +12,11 @@ export async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: st
             const readOnlyQueryMode = ctx.lifespanContext.readOnlyQueryMode;
 
             if (!bucket) {
-                queryLogger.error('Bucket not initialized');
+                logger.error('Bucket not initialized');
                 throw createError('DB_ERROR', "Bucket is not initialized");
             }
 
-            queryLogger.info('Executing SQL++ query', { 
+            logger.info('Executing SQL++ query', { 
                 readOnlyMode: readOnlyQueryMode,
                 scope: scopeName,
                 queryType: 'SQL++'
@@ -32,7 +30,7 @@ export async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: st
                 const structureModificationQuery = sqlppParser.modifiesStructure(parsedQuery);
 
                 if (dataModificationQuery) {
-                    queryLogger.warn('Data modification query rejected in read-only mode', {
+                    logger.warn('Data modification query rejected in read-only mode', {
                         query,
                         scope: scopeName
                     });
@@ -42,7 +40,7 @@ export async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: st
                     });
                 }
                 if (structureModificationQuery) {
-                    queryLogger.warn('Structure modification query rejected in read-only mode', {
+                    logger.warn('Structure modification query rejected in read-only mode', {
                         query,
                         scope: scopeName
                     });
@@ -53,13 +51,13 @@ export async function runSqlPlusPlusQuery(ctx: any, scopeName: string, query: st
                 }
             }
 
-            queryLogger.debug('Executing query', { query });
+            logger.debug('Executing query', { query });
             const result = await scope.query(query);
             const rows: any[] = [];
             for await (const row of result.rows) {
                 rows.push(row);
             }
-            queryLogger.info('Query executed successfully', {
+            logger.info('Query executed successfully', {
                 rowCount: rows.length,
                 scope: scopeName
             });

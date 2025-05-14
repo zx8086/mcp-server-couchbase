@@ -1,67 +1,49 @@
 /* src/lib/pingHandler.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "./logger";
+import { logger } from "./logger";
 import type { capellaConn } from "../types";
 
-const pingLogger = createContextLogger("PingHandler");
-
-export function registerPingHandlers(
-  server: McpServer,
-  capellaConn: capellaConn,
-): void {
+export function registerPingHandlers(server: McpServer, capellaConn: capellaConn): void {
   server.tool(
     "ping",
     "Checks the server and database connection status",
     {},
     async () => {
-      pingLogger.info("Protocol ping received");
       try {
-        if (capellaConn.defaultBucket) {
-          try {
-            await capellaConn.defaultBucket.ping();
+        logger.info("Protocol ping received");
+
+        // Check database connection
+        try {
+          if (!capellaConn.defaultBucket) {
             return {
-              content: [
-                {
-                  type: "text",
-                  text: "Pong! Server is connected to Couchbase.",
-                },
-              ],
-            };
-          } catch (error) {
-            pingLogger.warn("Database ping failed", { error });
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: "Pong! Server is running but database connection failed.",
-                },
-              ],
+              status: "error",
+              message: "Server is running but not connected to a database.",
             };
           }
-        } else {
+          await capellaConn.defaultBucket.ping();
           return {
-            content: [
-              {
-                type: "text",
-                text: "Pong! Server is running but not connected to a database.",
-              },
-            ],
+            status: "ok",
+            message: "Server and database are healthy",
+          };
+        } catch (error) {
+          logger.warn("Database ping failed", { error });
+          return {
+            status: "error",
+            message: "Server is running but database connection failed",
+            error: error instanceof Error ? error.message : String(error),
           };
         }
       } catch (error) {
-        pingLogger.error("Error during ping", { error });
+        logger.error("Error during ping", { error });
         return {
-          content: [
-            {
-              type: "text",
-              text: "Pong! Server is running but encountered an error.",
-            },
-          ],
+          status: "error",
+          message: "Server error during ping",
+          error: error instanceof Error ? error.message : String(error),
         };
       }
-    },
+    }
   );
 
-  pingLogger.info("Ping handlers registered successfully");
+  logger.info("Ping handlers registered successfully");
 }

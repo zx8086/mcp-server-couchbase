@@ -4,10 +4,8 @@ import {
   McpServer,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-
-const resourceLogger = createContextLogger("DocumentResource");
 
 export function registerDocumentResource(
   server: McpServer,
@@ -20,7 +18,7 @@ export function registerDocumentResource(
     }),
     async (uri, { scope, collection, id }) => {
       try {
-        resourceLogger.info("Fetching document resource", {
+        logger.info("Fetching document resource", {
           scope,
           collection,
           id,
@@ -84,7 +82,7 @@ export function registerDocumentResource(
           throw docError;
         }
       } catch (error) {
-        resourceLogger.error("Error fetching document resource", {
+        logger.error("Error fetching document resource", {
           error: error instanceof Error ? error.message : String(error),
           scope,
           collection,
@@ -104,5 +102,5 @@ export function registerDocumentResource(
     },
   );
 
-  resourceLogger.info("Document resource registered successfully");
+  logger.info("Document resource registered successfully");
 }

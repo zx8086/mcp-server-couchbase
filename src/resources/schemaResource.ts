@@ -4,10 +4,8 @@ import {
   McpServer,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-
-const resourceLogger = createContextLogger("SchemaResource");
 
 export function registerSchemaResource(
   server: McpServer,
@@ -18,7 +16,7 @@ export function registerSchemaResource(
     new ResourceTemplate("schema://{scope}/{collection}", { list: undefined }),
     async (uri, { scope, collection }) => {
       try {
-        resourceLogger.info("Fetching schema resource", { scope, collection });
+        logger.info("Fetching schema resource", { scope, collection });
 
         const collectionMgr = bucket.collections();
         const scopes = await collectionMgr.getAllScopes();
@@ -110,7 +108,7 @@ export function registerSchemaResource(
           throw queryError;
         }
       } catch (error) {
-        resourceLogger.error("Error fetching schema resource", {
+        logger.error("Error fetching schema resource", {
           error: error instanceof Error ? error.message : String(error),
           scope,
           collection,
@@ -129,7 +127,7 @@ export function registerSchemaResource(
     },
   );
 
-  resourceLogger.info("Schema resource registered successfully");
+  logger.info("Schema resource registered successfully");
 }
 
 /**

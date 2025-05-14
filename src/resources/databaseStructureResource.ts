@@ -1,10 +1,8 @@
 /* src/resources/databaseStructureResource.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-
-const resourceLogger = createContextLogger("DatabaseStructureResource");
 
 export function registerDatabaseStructureResource(
   server: McpServer,
@@ -18,7 +16,7 @@ export function registerDatabaseStructureResource(
     // Resource handler function
     async (uri) => {
       try {
-        resourceLogger.info("Fetching database structure resource");
+        logger.info("Fetching database structure resource");
 
         const scopes = await bucket.collections().getAllScopes();
 
@@ -63,7 +61,7 @@ export function registerDatabaseStructureResource(
           ],
         };
       } catch (error) {
-        resourceLogger.error("Error fetching database structure", {
+        logger.error("Error fetching database structure", {
           error: error instanceof Error ? error.message : String(error),
         });
 
@@ -80,5 +78,5 @@ export function registerDatabaseStructureResource(
     },
   );
 
-  resourceLogger.info("Database structure resource registered successfully");
+  logger.info("Database structure resource registered successfully");
 }

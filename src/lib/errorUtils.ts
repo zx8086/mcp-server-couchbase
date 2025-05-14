@@ -6,7 +6,10 @@ import type { CouchbaseError } from "couchbase";
 import { createContextLogger } from "./logger";
 import { logger } from "./logger";
 
-const errorLogger = createContextLogger("ErrorHandler");
+function getErrorLogger() {
+  const { createContextLogger } = require("./logger");
+  return createContextLogger("ErrorHandler");
+}
 
 /**
  * Generic error handler for async operations
@@ -48,6 +51,7 @@ export function handleCouchbaseError(
   params?: { document_id?: string; operation?: string },
 ): never {
   if (error instanceof AppError) {
+    const errorLogger = getErrorLogger();
     errorLogger.debug("Handling AppError", {
       code: error.code,
       message: error.message,
@@ -59,6 +63,7 @@ export function handleCouchbaseError(
   const operation = params?.operation || "database operation";
 
   if (operation === "upserting document") {
+    const errorLogger = getErrorLogger();
     if (error.message.includes("Cannot convert undefined or null to object")) {
       errorLogger.warn("Invalid document content", {
         operation,
@@ -95,6 +100,7 @@ export function handleCouchbaseError(
   }
 
   if (error.name === "AuthenticationError") {
+    const errorLogger = getErrorLogger();
     errorLogger.error("Authentication failed", {
       operation,
       documentId: params?.document_id,
@@ -107,6 +113,7 @@ export function handleCouchbaseError(
   }
 
   if (error.name === "DocumentNotFoundError") {
+    const errorLogger = getErrorLogger();
     errorLogger.warn("Document not found", {
       operation,
       documentId: params?.document_id,
@@ -118,6 +125,7 @@ export function handleCouchbaseError(
   }
 
   if (error.name === "QueryError") {
+    const errorLogger = getErrorLogger();
     errorLogger.error("Query error", {
       operation,
       documentId: params?.document_id,
@@ -127,6 +135,7 @@ export function handleCouchbaseError(
   }
 
   if (error.name === "ValidationError") {
+    const errorLogger = getErrorLogger();
     errorLogger.warn("Validation error", {
       operation,
       documentId: params?.document_id,
@@ -135,6 +144,7 @@ export function handleCouchbaseError(
     throw createError("VALIDATION_ERROR", `Validation error: ${error.message}`);
   }
 
+  const errorLogger = getErrorLogger();
   errorLogger.error("Unhandled database error", {
     operation,
     documentId: params?.document_id,

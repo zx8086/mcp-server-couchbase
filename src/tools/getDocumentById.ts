@@ -1,12 +1,15 @@
 /* src/tools/getDocumentById.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { createError } from "../lib/errors";
 import { z } from "zod"; 
 
-const docLogger = createContextLogger("DocumentOps");
+function getDocLogger() {
+  const { createContextLogger } = require("../lib/logger");
+  return createContextLogger("DocumentOps");
+}
 
 export default (server: McpServer, bucket: Bucket) => {
   server.tool(
@@ -19,6 +22,7 @@ export default (server: McpServer, bucket: Bucket) => {
     },
     async ({ scope_name, collection_name, document_id }) => {
       try {
+        const docLogger = getDocLogger();
         docLogger.info("Processing document retrieval:", {
           scope_name,
           collection_name,
@@ -47,6 +51,7 @@ export default (server: McpServer, bucket: Bucket) => {
           ],
         };
       } catch (error) {
+        const docLogger = getDocLogger();
         docLogger.error("Error in get_document_by_id:", error);
         throw error;
       }

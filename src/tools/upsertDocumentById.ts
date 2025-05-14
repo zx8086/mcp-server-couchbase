@@ -1,12 +1,10 @@
 /* src/tools/upsertDocumentById.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { createError } from "../lib/errors";
 import { z } from "zod";
-
-const docLogger = createContextLogger("DocumentOps");
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
@@ -20,7 +18,7 @@ export default (server: McpServer, bucket: Bucket) => {
         },
         async ({ scope_name, collection_name, document_id, document_content }) => {
             try {
-                docLogger.info("Processing document upsert:", {
+                logger.info("Processing document upsert:", {
                     scope_name,
                     collection_name,
                     document_id,
@@ -40,7 +38,7 @@ export default (server: McpServer, bucket: Bucket) => {
                 const collection = bucket.scope(scope_name).collection(collection_name);
                 await collection.upsert(document_id, content);
 
-                docLogger.info("Document upserted successfully", {
+                logger.info("Document upserted successfully", {
                     scope: scope_name,
                     collection: collection_name,
                     id: document_id,
@@ -55,7 +53,7 @@ export default (server: McpServer, bucket: Bucket) => {
                     ],
                 };
             } catch (error) {
-                docLogger.error("Error in upsert_document_by_id:", error);
+                logger.error("Error in upsert_document_by_id:", error);
                 throw error;
             }
         },

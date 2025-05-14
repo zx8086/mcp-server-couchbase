@@ -1,12 +1,10 @@
 /* src/tools/deleteDocumentById.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { createError } from "../lib/errors";
 import { z } from "zod";
-
-const docLogger = createContextLogger("DocumentOps");
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
@@ -19,7 +17,7 @@ export default (server: McpServer, bucket: Bucket) => {
         },
         async ({ scope_name, collection_name, document_id }) => {
             try {
-                docLogger.info("Processing document deletion:", {
+                logger.info("Processing document deletion:", {
                     scope_name,
                     collection_name,
                     document_id,
@@ -32,7 +30,7 @@ export default (server: McpServer, bucket: Bucket) => {
                 const collection = bucket.scope(scope_name).collection(collection_name);
                 await collection.remove(document_id);
 
-                docLogger.info("Document deleted successfully", {
+                logger.info("Document deleted successfully", {
                     scope: scope_name,
                     collection: collection_name,
                     id: document_id,
@@ -47,7 +45,7 @@ export default (server: McpServer, bucket: Bucket) => {
                     ],
                 };
             } catch (error) {
-                docLogger.error("Error in delete_document_by_id:", error);
+                logger.error("Error in delete_document_by_id:", error);
                 throw error;
             }
         },

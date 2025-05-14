@@ -4,11 +4,9 @@ import {
   McpServer,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger, createContextLogger } from "../lib/logger";
+import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
 import { sqlppParser } from "../lib/sqlppParser";
-
-const resourceLogger = createContextLogger("QueryResource");
 
 export function registerQueryResource(server: McpServer, bucket: Bucket): void {
   server.resource(
@@ -19,7 +17,7 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
         // Decode the query
         const query = decodeURIComponent(encodedQuery);
 
-        resourceLogger.info("Executing query resource", { scope, query });
+        logger.info("Executing query resource", { scope, query });
 
         try {
           const scopes = await bucket.collections().getAllScopes();
@@ -100,7 +98,7 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
           throw queryError;
         }
       } catch (error) {
-        resourceLogger.error("Error executing query resource", {
+        logger.error("Error executing query resource", {
           error: error instanceof Error ? error.message : String(error),
           scope,
           encodedQuery,
@@ -119,5 +117,5 @@ export function registerQueryResource(server: McpServer, bucket: Bucket): void {
     },
   );
 
-  resourceLogger.info("Query resource registered successfully");
+  logger.info("Query resource registered successfully");
 }

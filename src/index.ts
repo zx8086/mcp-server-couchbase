@@ -49,12 +49,15 @@ export async function createServer(capellaConn: any): Promise<McpServer> {
     registerPingHandlers(server, capellaConn);
 
     // Register a minimal echo tool for debugging
-    const docLogger = createContextLogger('EchoTool');
+    function getDocLogger() {
+        const { createContextLogger } = require("./lib/logger");
+        return createContextLogger('EchoTool');
+    }
     server.tool(
         "echo",
         {},
         async (params: any) => {
-            docLogger.info("EchoTool RAW params", { raw_params: JSON.stringify(params) });
+            getDocLogger().info("EchoTool RAW params", { raw_params: JSON.stringify(params) });
             return { content: [{ type: "text", text: JSON.stringify(params) }] };
         }
     );
