@@ -78,10 +78,12 @@ This is the common configuration for the MCP clients such as Claude Desktop, Cur
         "dist/index.js"
       ],
       "env": {
-        "CB_CONNECTION_STRING": "couchbases://connection-string",
-        "CB_USERNAME": "username",
-        "CB_PASSWORD": "password",
-        "CB_BUCKET_NAME": "bucket_name"
+        "COUCHBASE_URL": "couchbases://your-cluster-url",
+        "COUCHBASE_USERNAME": "your-username",
+        "COUCHBASE_PASSWORD": "your-password",
+        "COUCHBASE_BUCKET": "your-bucket",
+        "COUCHBASE_SCOPE": "your-scope",
+        "COUCHBASE_COLLECTION": "your-collection"
       }
     }
   }
