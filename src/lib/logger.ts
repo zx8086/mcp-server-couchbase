@@ -1,6 +1,6 @@
 /* src/lib/logger.ts */
 
-import { createLogger, format, transports } from "winston";
+import { createLogger, format, transports, Logger } from "winston";
 import { config } from "../config";
 
 const DEFAULT_LOG_LEVEL = "info";
@@ -46,7 +46,7 @@ function getLoggerConfig() {
 }
 
 // Initialize logger lazily
-let loggerInstance: ReturnType<typeof createLogger> | null = null;
+let loggerInstance: Logger | null = null;
 
 function getLogger() {
   if (!loggerInstance) {
@@ -55,43 +55,42 @@ function getLogger() {
   return loggerInstance;
 }
 
-export const logger = {
-  info: (message: string, meta?: any) => {
-    getLogger().info(message, meta);
-  },
-  error: (message: string, meta?: any) => {
-    getLogger().error(message, meta);
-  },
-  warn: (message: string, meta?: any) => {
-    getLogger().warn(message, meta);
-  },
-  debug: (message: string, meta?: any) => {
-    getLogger().debug(message, meta);
-  },
-  configure: (logLevel: string) => {
-    getLogger().level = logLevel;
-    getLogger().configure({
-      ...getLoggerConfig(),
-      level: logLevel
-    });
-  },
-  child: (options: { context: string }) => {
-    const childLogger = getLogger().child(options);
-    return {
-      info: (message: string, meta?: any) => childLogger.info(message, meta),
-      error: (message: string, meta?: any) => childLogger.error(message, meta),
-      warn: (message: string, meta?: any) => childLogger.warn(message, meta),
-      debug: (message: string, meta?: any) => childLogger.debug(message, meta),
-    };
-  }
-};
-
-export function configureLogger(logLevel: string) {
-  logger.configure(logLevel);
+export interface LoggerInterface {
+  info(message: string, meta?: Record<string, unknown>): void;
+  error(message: string, meta?: Record<string, unknown>): void;
+  warn(message: string, meta?: Record<string, unknown>): void;
+  debug(message: string, meta?: Record<string, unknown>): void;
 }
 
-export function createContextLogger(context: string) {
-  // Avoid top-level logger.child usage
-  const { logger } = require("./logger");
-  return logger.child({ context });
+export const logger: LoggerInterface = {
+  info: (message: string, meta?: Record<string, unknown>) => {
+    getLogger().info(message, meta);
+  },
+  error: (message: string, meta?: Record<string, unknown>) => {
+    getLogger().error(message, meta);
+  },
+  warn: (message: string, meta?: Record<string, unknown>) => {
+    getLogger().warn(message, meta);
+  },
+  debug: (message: string, meta?: Record<string, unknown>) => {
+    getLogger().debug(message, meta);
+  },
+};
+
+export function createContextLogger(context: string): LoggerInterface {
+  const childLogger = getLogger().child({ context });
+  return {
+    info: (message: string, meta?: Record<string, unknown>) => childLogger.info(message, meta),
+    error: (message: string, meta?: Record<string, unknown>) => childLogger.error(message, meta),
+    warn: (message: string, meta?: Record<string, unknown>) => childLogger.warn(message, meta),
+    debug: (message: string, meta?: Record<string, unknown>) => childLogger.debug(message, meta),
+  };
+}
+
+export function configureLogger(logLevel: string): void {
+  getLogger().level = logLevel;
+  getLogger().configure({
+    ...getLoggerConfig(),
+    level: logLevel
+  });
 }

@@ -1,15 +1,8 @@
 /* src/tools/getDocumentById.ts */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { createError } from "../lib/errors";
-import { z } from "zod"; 
-
-function getDocLogger() {
-  const { createContextLogger } = require("../lib/logger");
-  return createContextLogger("DocumentOps");
-}
+import { z } from "zod";
 
 export default (server: McpServer, bucket: Bucket) => {
   server.tool(
@@ -21,40 +14,16 @@ export default (server: McpServer, bucket: Bucket) => {
       document_id: z.string().describe("ID of the document to retrieve"),
     },
     async ({ scope_name, collection_name, document_id }) => {
-      try {
-        const docLogger = getDocLogger();
-        docLogger.info("Processing document retrieval:", {
-          scope_name,
-          collection_name,
-          document_id,
-        });
-
-        if (!bucket) {
-          throw createError("DB_ERROR", "Bucket is not initialized");
-        }
-
-        const collection = bucket.scope(scope_name).collection(collection_name);
-        const result = await collection.get(document_id);
-
-        docLogger.info("Document retrieved successfully", {
-          scope: scope_name,
-          collection: collection_name,
-          id: document_id,
-        });
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result.content, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        const docLogger = getDocLogger();
-        docLogger.error("Error in get_document_by_id:", error);
-        throw error;
-      }
-    },
+      const collection = bucket.scope(scope_name).collection(collection_name);
+      const result = await collection.get(document_id);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(result.content, null, 2),
+          },
+        ],
+      };
+    }
   );
 };

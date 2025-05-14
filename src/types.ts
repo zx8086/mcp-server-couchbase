@@ -2,6 +2,7 @@
 
 import { Cluster, Bucket, Scope, Collection, DocumentNotFoundError, CouchbaseError, type QueryOptions, QueryResult, StreamableRowPromise, QueryMetaData } from "couchbase";
 import type { AppError } from "./lib/errors";
+import type { LoggerInterface } from "./lib/logger";
 
 /**
  * Environment configuration type
@@ -179,22 +180,46 @@ export interface ToolParams {
   scope_name: string;
   collection_name?: string;
   document_id?: string;
-  document_content?: DocumentContent;
+  document_content?: Record<string, unknown>;
   query?: string;
 }
 
 export interface ToolResponse {
   content: Array<{
-    type: string;
+    type: "text";
     text: string;
   }>;
 }
 
-export interface CouchbaseConfig {
-  url?: string;
-  username?: string;
-  password?: string;
-  bucket?: string;
-  scope?: string;
-  collection?: string;
+export interface ErrorResponse {
+  status: "error";
+  message: string;
+  error?: string;
+}
+
+export interface SuccessResponse {
+  status: "ok";
+  message: string;
+}
+
+export type PingResponse = ErrorResponse | SuccessResponse;
+
+export interface LoggerContext {
+  context: string;
+  logger: LoggerInterface;
+}
+
+export interface ServerConfig {
+  name: string;
+  version: string;
+  readOnlyQueryMode: boolean;
+}
+
+export interface LogConfig {
+  level: string;
+}
+
+export interface Config {
+  server: ServerConfig;
+  log?: LogConfig;
 }
