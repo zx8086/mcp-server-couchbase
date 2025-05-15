@@ -2,8 +2,9 @@
 
 import type { OperationContext, QueryResult } from './types';
 import { createError } from './errors';
-import { logger } from './logger';
+import { logger, measureOperation } from './logger';
 import type { SQLPPParser } from './sqlppParser';
+import { config } from '../config';
 
 export async function runSqlPlusPlusQuery(
   ctx: OperationContext,
@@ -11,48 +12,76 @@ export async function runSqlPlusPlusQuery(
   query: string,
   sqlppParser: SQLPPParser
 ): Promise<QueryResult> {
+  const requestLogger = logger.createContextLogger('runSqlPlusPlusQuery');
+
   if (!ctx.lifespanContext.bucket) {
-    logger.error('Bucket not initialized');
+    requestLogger.error('Bucket not initialized');
     throw createError('DB_ERROR', 'Bucket not initialized');
   }
 
-  logger.info('Executing SQL++ query', {
+  requestLogger.info('Executing SQL++ query', {
     scope: scopeName,
-    query
+    queryLength: query.length,
   });
 
   const parsedQuery = sqlppParser.parse(query);
 
   // Check for data modification queries in read-only mode
-  if (sqlppParser.modifiesData(parsedQuery)) {
-    logger.warn('Data modification query rejected in read-only mode', {
-      query
+  if (config.server.readOnlyQueryMode && sqlppParser.modifiesData(parsedQuery)) {
+    requestLogger.warn('Data modification query rejected in read-only mode', {
+      query,
+      operation: 'data_modification',
     });
-    throw createError('DB_ERROR', 'Data modification queries are not allowed in read-only mode');
+    throw createError('QUERY_ERROR', 'Data modification queries are not allowed in read-only mode');
   }
 
   // Check for structure modification queries in read-only mode
-  if (sqlppParser.modifiesStructure(parsedQuery)) {
-    logger.warn('Structure modification query rejected in read-only mode', {
-      query
+  if (config.server.readOnlyQueryMode && sqlppParser.modifiesStructure(parsedQuery)) {
+    requestLogger.warn('Structure modification query rejected in read-only mode', {
+      query,
+      operation: 'structure_modification',
     });
-    throw createError('DB_ERROR', 'Structure modification queries are not allowed in read-only mode');
+    throw createError('QUERY_ERROR', 'Structure modification queries are not allowed in read-only mode');
+  }
+
+  // Add LIMIT clause if not present and maxResultsPerQuery is configured
+  let safeQuery = query;
+  if (config.server.maxResultsPerQuery && !parsedQuery.hasLimit) {
+    safeQuery = `${query} LIMIT ${config.server.maxResultsPerQuery}`;
+    requestLogger.debug('Added LIMIT clause to query', {
+      originalQuery: query,
+      modifiedQuery: safeQuery,
+    });
   }
 
   try {
-    logger.debug('Executing query', { query });
-    const result = await ctx.lifespanContext.bucket.scope(scopeName).query(query);
-    const rows = await result.rows;
+    return await measureOperation(
+      'execute_query',
+      async () => {
+        requestLogger.debug('Executing query', { query: safeQuery });
+        const result = await ctx.lifespanContext.bucket.scope(scopeName).query(safeQuery);
+        const rows = await result.rows;
 
-    logger.info('Query executed successfully', {
-      rowCount: rows.length
-    });
+        requestLogger.info('Query executed successfully', {
+          rowCount: rows.length,
+          executionTime: result.meta?.executionTime,
+        });
 
-    return {
-      rows,
-      meta: result.meta
-    };
+        return {
+          rows,
+          meta: result.meta,
+        };
+      },
+      {
+        scope: scopeName,
+        query: safeQuery,
+      }
+    );
   } catch (error) {
+    requestLogger.error('Query execution failed', {
+      error: error instanceof Error ? error.message : String(error),
+      query: safeQuery,
+    });
     throw createError('QUERY_ERROR', 'Failed to execute query', error);
   }
 }

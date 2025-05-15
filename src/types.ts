@@ -140,6 +140,8 @@ export interface ASTNode {
   start?: number;
   end?: number;
   rawQuery?: string;
+  hasWhere?: boolean;
+  hasLimit?: boolean;
 }
 
 /**

@@ -1,132 +1,184 @@
 /* src/lib/connectionManager.ts */
 
-import { getCluster as connectToCluster } from "./couchbaseConnector";
-import type { CapellaConn } from "../types";
-import { logger, createContextLogger } from "./logger";
+import { Cluster, Bucket, connect } from "couchbase";
+import { logger } from "./logger";
+import { createError } from "./errors";
+import { config } from "../config";
 
-const connLogger = createContextLogger("ConnectionManager");
-
-// Constants for connection management
-const CONNECTION_CONSTANTS = {
-    MAX_RETRIES: 3,
-    RETRY_DELAY_MS: 1000,
-    CONCURRENT_INIT_WAIT_MS: 100,
-    HEALTH_CHECK_TIMEOUT_MS: 5000
-} as const;
-
-/**
- * Unified connection manager for Couchbase
- * Combines the functionality of the previous clusterProvider and connectionManager
- */
 export class CouchbaseConnectionManager {
-    private static instance: CapellaConn | null = null;
-    private static isInitializing = false;
-    private static retryCount = 0;
+  private static instance: CouchbaseConnectionManager;
+  private cluster: Cluster | null = null;
+  private bucket: Bucket | null = null;
+  private connectionPool: Bucket[] = [];
+  private isHealthy = false;
+  private healthCheckInterval: NodeJS.Timeout | null = null;
+  private initializationPromise: Promise<void> | null = null;
 
-    /**
-     * Gets a connection to the Couchbase cluster
-     * Will establish a connection if one doesn't exist
-     * Includes retry logic
-     */
-    static async getConnection(): Promise<CapellaConn> {
-        if (!this.instance) {
-            // Handle concurrent initialization requests
-            if (this.isInitializing) {
-                connLogger.debug("Connection initialization in progress, waiting...");
-                await new Promise((resolve) => setTimeout(resolve, CONNECTION_CONSTANTS.CONCURRENT_INIT_WAIT_MS));
-                return this.getConnection();
-            }
+  private constructor() {
+    // Private constructor to enforce singleton pattern
+  }
 
-            try {
-                this.isInitializing = true;
-                connLogger.info("Initializing Couchbase connection", {
-                    retryCount: this.retryCount,
-                    maxRetries: CONNECTION_CONSTANTS.MAX_RETRIES,
-                });
-                
-                this.instance = await this.connectWithRetry();
-                
-                connLogger.info("Couchbase connection initialized successfully", {
-                    retryCount: this.retryCount,
-                });
-                // Reset retry counter on success
-                this.retryCount = 0;
-            } catch (error) {
-                connLogger.error("Failed to initialize Couchbase connection", {
-                    error: error instanceof Error ? error.message : String(error),
-                    retryCount: this.retryCount,
-                });
-                throw error;
-            } finally {
-                this.isInitializing = false;
-            }
-        }
-        return this.instance;
+  public static getInstance(): CouchbaseConnectionManager {
+    if (!CouchbaseConnectionManager.instance) {
+      CouchbaseConnectionManager.instance = new CouchbaseConnectionManager();
+    }
+    return CouchbaseConnectionManager.instance;
+  }
+
+  public async initialize(): Promise<void> {
+    if (!this.initializationPromise) {
+      logger.info("Initializing Couchbase connection manager");
+      this.initializationPromise = this.initializeConnection();
+      this.startHealthCheck();
+    }
+    return this.initializationPromise;
+  }
+
+  private async initializeConnection(): Promise<void> {
+    try {
+      logger.info("Connecting to Couchbase cluster", {
+        connectionString: config.database.connectionString,
+        bucketName: config.database.bucketName
+      });
+
+      this.cluster = await connect(config.database.connectionString, {
+        username: config.database.username,
+        password: config.database.password,
+      });
+
+      this.bucket = this.cluster.bucket(config.database.bucketName);
+      await this.initializeConnectionPool();
+      this.isHealthy = true;
+
+      logger.info("Successfully connected to Couchbase cluster");
+    } catch (error) {
+      this.isHealthy = false;
+      logger.error("Failed to connect to Couchbase cluster", { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw createError("DB_ERROR", "Failed to initialize database connection", error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private async initializeConnectionPool(): Promise<void> {
+    try {
+      // Initialize the connection pool with the configured number of connections
+      for (let i = 0; i < config.database.maxConnections; i++) {
+        const bucket = this.cluster!.bucket(config.database.bucketName);
+        this.connectionPool.push(bucket);
+      }
+      logger.info("Connection pool initialized", { 
+        poolSize: this.connectionPool.length,
+        maxConnections: config.database.maxConnections
+      });
+    } catch (error) {
+      logger.error("Failed to initialize connection pool", { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw createError("DB_ERROR", "Failed to initialize connection pool", error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  private startHealthCheck(): void {
+    logger.info("Starting health check monitor");
+    // Run health check every 30 seconds
+    this.healthCheckInterval = setInterval(async () => {
+      await this.checkHealth();
+    }, 30000);
+  }
+
+  private async checkHealth(): Promise<void> {
+    try {
+      if (!this.cluster || !this.bucket) {
+        this.isHealthy = false;
+        logger.warn("Health check failed: No active connection");
+        await this.initializeConnection();
+        return;
+      }
+
+      // Perform a simple ping operation
+      await this.cluster.ping();
+      
+      // Check if we can access the bucket
+      await this.bucket.defaultCollection().get("health_check_key").catch(() => {
+        // Ignore not found error, we just want to verify bucket access
+      });
+
+      this.isHealthy = true;
+      logger.debug("Health check passed", { 
+        clusterConnected: !!this.cluster,
+        bucketConnected: !!this.bucket
+      });
+    } catch (error) {
+      this.isHealthy = false;
+      logger.error("Health check failed", { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      
+      // Attempt to reconnect
+      try {
+        await this.initializeConnection();
+      } catch (reconnectError) {
+        logger.error("Failed to reconnect during health check", { 
+          error: reconnectError instanceof Error ? reconnectError.message : String(reconnectError)
+        });
+      }
+    }
+  }
+
+  public async getConnection(): Promise<Bucket> {
+    if (!this.initializationPromise) {
+      await this.initialize();
     }
 
-    /**
-     * Attempts to establish a connection with retry logic
-     */
-    private static async connectWithRetry(): Promise<CapellaConn> {
-        try {
-            return await connectToCluster();
-        } catch (error) {
-            if (this.retryCount < CONNECTION_CONSTANTS.MAX_RETRIES) {
-                this.retryCount++;
-                connLogger.warn("Connection attempt failed, retrying", {
-                    attempt: this.retryCount,
-                    maxRetries: CONNECTION_CONSTANTS.MAX_RETRIES,
-                    delay: CONNECTION_CONSTANTS.RETRY_DELAY_MS,
-                    error: error instanceof Error ? error.message : String(error),
-                });
-                await new Promise((resolve) => setTimeout(resolve, CONNECTION_CONSTANTS.RETRY_DELAY_MS));
-                return this.connectWithRetry();
-            }
-            throw error;
-        }
+    if (!this.isHealthy) {
+      logger.error("Attempted to get connection while unhealthy");
+      throw createError("DB_ERROR", "Database connection is not healthy");
     }
 
-    /**
-     * Resets the connection
-     * Useful for testing or after connection errors
-     */
-    static async resetConnection(): Promise<void> {
-        this.instance = null;
-        this.retryCount = 0;
-        connLogger.info("Connection reset");
+    // Get a connection from the pool using round-robin
+    const connection = this.connectionPool.shift();
+    if (!connection) {
+      logger.error("No available connections in the pool");
+      throw createError("DB_ERROR", "No available connections in the pool");
     }
 
-    /**
-     * Sets a mock connection (useful for testing)
-     */
-    static setMockConnection(mockConn: CapellaConn): void {
-        this.instance = mockConn;
-        connLogger.info("Mock connection set");
+    // Add the connection back to the pool
+    this.connectionPool.push(connection);
+    return connection;
+  }
+
+  public async close(): Promise<void> {
+    logger.info("Closing Couchbase connection manager");
+    
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      logger.debug("Health check monitor stopped");
     }
 
-    /**
-     * Checks if the connection is healthy
-     */
-    static async checkHealth(): Promise<boolean> {
-        if (!this.instance) {
-            connLogger.warn("Health check failed - no active connection");
-            return false;
-        }
-
-        try {
-            await this.instance.cluster.ping();
-            connLogger.debug("Health check successful");
-            return true;
-        } catch (error) {
-            connLogger.error("Health check failed", {
-                error: error instanceof Error ? error.message : String(error),
-            });
-            return false;
-        }
+    try {
+      if (this.cluster) {
+        await this.cluster.close();
+      }
+      this.connectionPool = [];
+      this.isHealthy = false;
+      this.initializationPromise = null;
+      logger.info("Couchbase connection closed successfully");
+    } catch (error) {
+      logger.error("Error closing Couchbase connection", { 
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw createError("DB_ERROR", "Failed to close database connection", error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  public isConnectionHealthy(): boolean {
+    return this.isHealthy;
+  }
+
+  public getPoolSize(): number {
+    return this.connectionPool.length;
+  }
 }
 
-// Export a convenience function for simple access
-export async function getCluster(): Promise<CapellaConn> {
-    return CouchbaseConnectionManager.getConnection();
-}
+export const connectionManager = CouchbaseConnectionManager.getInstance();

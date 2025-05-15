@@ -1,47 +1,90 @@
 /* src/lib/responseBuilder.ts */
 
-import type { ToolResponse } from '../types';
+import { logger } from "./logger";
+import { AppError, getErrorCode, getErrorMessage } from "./errors";
 
-export interface ResponseOptions {
-  type?: 'text' | 'json' | 'markdown';
-  format?: boolean;
+export type ResponseType = "json" | "text" | "error";
+
+export interface ResponseContent {
+  type: ResponseType;
+  data: unknown;
+  metadata?: Record<string, unknown>;
 }
 
 export class ResponseBuilder {
-  static success(content: string | object, options: ResponseOptions = {}): ToolResponse {
-    const { type = 'text', format = true } = options;
-    
-    let text: string;
-    if (typeof content === 'object') {
-      text = format ? JSON.stringify(content, null, 2) : JSON.stringify(content);
-    } else {
-      text = content;
-    }
+  private content: ResponseContent[] = [];
+  private metadata: Record<string, unknown> = {};
 
-    return {
-      content: [{
-        type: type as "text",
-        text
-      }]
-    };
+  static success(data: unknown, type: ResponseType = "json", metadata?: Record<string, unknown>): ResponseBuilder {
+    const builder = new ResponseBuilder();
+    return builder.addContent(data, type, metadata);
   }
 
-  static error(message: string, error?: Error): ToolResponse {
-    const errorDetails = error ? `\nDetails: ${error.message}` : '';
-    return {
-      content: [{
-        type: "text",
-        text: `Error: ${message}${errorDetails}`
-      }]
-    };
+  static error(message: string, error?: unknown): ResponseBuilder {
+    const builder = new ResponseBuilder();
+    return builder.addError(message, error);
   }
 
-  static markdown(content: string): ToolResponse {
+  addContent(data: unknown, type: ResponseType = "json", metadata?: Record<string, unknown>): ResponseBuilder {
+    this.content.push({
+      type,
+      data,
+      metadata,
+    });
+    return this;
+  }
+
+  addError(message: string, error?: unknown): ResponseBuilder {
+    const errorCode = error ? getErrorCode(error) : "UNKNOWN_ERROR";
+    const errorMessage = error ? getErrorMessage(error) : message;
+
+    logger.error("Error response", {
+      code: errorCode,
+      message: errorMessage,
+      originalError: error,
+    });
+
+    this.content.push({
+      type: "error",
+      data: {
+        code: errorCode,
+        message: errorMessage,
+      },
+    });
+    return this;
+  }
+
+  setMetadata(metadata: Record<string, unknown>): ResponseBuilder {
+    this.metadata = { ...this.metadata, ...metadata };
+    return this;
+  }
+
+  build(): { content: Array<{ type: string; text: string }> } {
     return {
-      content: [{
-        type: "text",
-        text: content
-      }]
+      content: this.content.map((item) => {
+        switch (item.type) {
+          case "json":
+            return {
+              type: "text",
+              text: JSON.stringify(item.data, null, 2),
+            };
+          case "text":
+            return {
+              type: "text",
+              text: String(item.data),
+            };
+          case "error":
+            return {
+              type: "text",
+              text: `Error: ${(item.data as { message: string }).message}`,
+            };
+          default:
+            return {
+              type: "text",
+              text: String(item.data),
+            };
+        }
+      }),
     };
   }
 } 
