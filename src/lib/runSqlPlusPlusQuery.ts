@@ -2,7 +2,7 @@
 
 import type { OperationContext, QueryResult } from './types';
 import { createError } from './errors';
-import { logger, measureOperation } from './logger';
+import { logger, measureOperation, createContextLogger } from './logger';
 import type { SQLPPParser } from './sqlppParser';
 import { config } from '../config';
 
@@ -12,7 +12,7 @@ export async function runSqlPlusPlusQuery(
   query: string,
   sqlppParser: SQLPPParser
 ): Promise<QueryResult> {
-  const requestLogger = logger.createContextLogger('runSqlPlusPlusQuery');
+  const requestLogger = createContextLogger('runSqlPlusPlusQuery');
 
   if (!ctx.lifespanContext.bucket) {
     requestLogger.error('Bucket not initialized');

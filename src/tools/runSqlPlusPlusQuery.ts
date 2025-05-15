@@ -9,63 +9,50 @@ import { sqlppParser } from "../lib/sqlppParser";
 import { createError } from "../lib/errors";
 import { ResponseBuilder } from "../lib/responseBuilder";
 
-interface SqlQueryParams {
-    scope_name: string;
-    query: string;
-}
-
-const runQuery = async (params: SqlQueryParams, bucket: Bucket): Promise<{ content: Array<{ type: string; text: string }> }> => {
+const runQuery = async (params: { scope_name: string; query: string }, bucket: Bucket) => {
     if (!bucket) {
-        throw createError("DB_ERROR", "Database error: bucket not found");
+        return {
+            content: [{ type: "text" as const, text: "Database error: bucket not found" }],
+            isError: true
+        };
     }
 
     const { scope_name, query } = params;
-    
+
     try {
         const result = await runSqlPlusPlusQuery({ lifespanContext: { bucket } }, scope_name, query, sqlppParser);
-        
-        if (result.rows.length === 1 && 'distinct_source_count' in result.rows[0]) {
-            return ResponseBuilder
-                .success(`Found ${result.rows[0].distinct_source_count} distinct sources`, "text")
-                .setMetadata({ rowCount: 1 })
-                .build();
+        const rows = result.rows as any[];
+
+        if (rows.length === 1 && 'distinct_source_count' in rows[0]) {
+            return {
+                content: [{ type: "text" as const, text: `Found ${rows[0].distinct_source_count} distinct sources` }],
+                _meta: { rowCount: 1 },
+                isError: false
+            };
         }
 
-        return ResponseBuilder
-            .success(result.rows, "json")
-            .setMetadata({ 
-                rowCount: result.rows.length,
-                meta: result.meta 
-            })
-            .build();
+        return {
+            content: [{ type: "text" as const, text: JSON.stringify(rows, null, 2) }],
+            _meta: { rowCount: rows.length, meta: result.meta },
+            isError: false
+        };
     } catch (error) {
-        if (error instanceof Error) {
-            if (error.message.includes('parsing failure')) {
-                throw createError("QUERY_ERROR", "Query parsing failed", error);
-            }
-            if (error.message.includes('read-only mode')) {
-                throw createError("QUERY_ERROR", "Operation not allowed in read-only mode", error);
-            }
-            if (error.message.includes('bucket not found')) {
-                throw createError("DB_ERROR", "Bucket not found", error);
-            }
-        }
-        throw createError("QUERY_ERROR", "Failed to execute query", error);
+        logger.error("Failed to execute query", { error });
+        return {
+            content: [{ type: "text" as const, text: "Failed to execute query" }],
+            isError: true
+        };
     }
 };
 
 export default (server: McpServer, bucket: Bucket) => {
     server.tool(
         "run_sql_plus_plus_query",
-        "Run a SQL++ query on a specific scope",
         {
             scope_name: z.string().describe("Name of the scope"),
             query: z.string().describe("SQL++ query to execute")
         },
-        async (params: { scope_name: string; query: string }) => {
-            if (!params || typeof params !== 'object') {
-                throw createError("VALIDATION_ERROR", "Missing required arguments object");
-            }
+        async (params, extra) => {
             return runQuery(params, bucket);
         }
     );

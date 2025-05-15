@@ -1,37 +1,31 @@
 /* tests/performance.test.ts */
 
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
-import { getCluster } from "../src/lib/couchbaseConnector";
 import { logger } from "../src/lib/logger";
-import type { capellaConn } from "../src/types";
-import { MockMcpServer } from "./tools.test";
+import { mockConnection, mockServer } from "./test.utils";
 import toolRegistry from "../src/tools";
 
 describe("Performance Tests", () => {
-  let connection: capellaConn;
-  let mockServer: MockMcpServer;
   const TEST_DOC_ID = "perf_test_doc";
   const BATCH_SIZE = 100;
   const CONCURRENT_OPERATIONS = 50;
 
   beforeAll(async () => {
-    connection = await getCluster();
-    mockServer = new MockMcpServer();
-    Object.entries(toolRegistry).forEach(([name, handler]) => {
-      handler(mockServer as any, connection.defaultBucket);
+    Object.values(toolRegistry).forEach(registerTool => {
+      registerTool(mockServer as any, mockConnection.defaultBucket);
     });
   });
 
   afterAll(async () => {
-    if (connection?.defaultBucket) {
-      const collection = connection.defaultBucket.scope("_default").collection("_default");
+    if (mockConnection.defaultBucket) {
+      const collection = mockConnection.defaultBucket.scope("_default").collection("_default");
       try {
         await collection.remove(TEST_DOC_ID);
       } catch (error) {
         logger.info(`No test document to clean up: ${TEST_DOC_ID}`);
       }
-      if (connection.cluster) {
-        await connection.cluster.close();
+      if (mockConnection.cluster) {
+        await mockConnection.cluster.close();
       }
     }
   });
@@ -174,7 +168,9 @@ describe("Performance Tests", () => {
       });
 
       expect(queryResult).toBeDefined();
-      expect(queryResult.content[0].text).toContain("Query returned");
+      expect(queryResult.content[0].text).toContain("[");
+      const arr = JSON.parse(queryResult.content[0].text);
+      expect(Array.isArray(arr)).toBe(true);
     });
   });
 

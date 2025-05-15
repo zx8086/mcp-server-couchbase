@@ -46,7 +46,7 @@ export async function createServer(bucket: any): Promise<McpServer> {
     registerAllResources(server, bucket);
 
     // Register ping handlers for both protocol and tool usage
-    registerPingHandlers(server, bucket);
+    registerPingHandlers(server);
 
     // Register a minimal echo tool for debugging
     function getDocLogger() {

@@ -2,9 +2,9 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./logger";
-import type { CapellaConn } from "../types";
+import { connectionManager } from "./connectionManager";
 
-export function registerPingHandlers(server: McpServer, capellaConn: CapellaConn): void {
+export function registerPingHandlers(server: McpServer): void {
   server.tool(
     "ping",
     "Checks the server and database connection status",
@@ -13,19 +13,21 @@ export function registerPingHandlers(server: McpServer, capellaConn: CapellaConn
       try {
         logger.info("Protocol ping received");
 
-        // Check database connection
+        // Use the connection manager's health check
+        if (!connectionManager.isConnectionHealthy()) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Server is running but not connected to a database."
+              }
+            ]
+          };
+        }
+        // Optionally, try a lightweight ping
         try {
-          if (!capellaConn.defaultBucket) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: "Server is running but not connected to a database."
-                }
-              ]
-            };
-          }
-          await capellaConn.defaultBucket.ping();
+          const bucket = await connectionManager.getConnection();
+          await bucket.ping();
           return {
             content: [
               {

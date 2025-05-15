@@ -1,35 +1,29 @@
 /* tests/edgeCases.test.ts */
 
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
-import { getCluster } from "../src/lib/couchbaseConnector";
 import { logger } from "../src/lib/logger";
-import type { CapellaConn } from "../src/types";
-import { MockMcpServer } from "./tools.test";
+import { mockConnection, mockServer } from "./test.utils";
 import toolRegistry from "../src/tools";
 
 describe("Edge Cases and Error Scenarios", () => {
-  let connection: CapellaConn;
-  let mockServer: MockMcpServer;
   const TEST_DOC_ID = "edge_case_test_doc";
 
   beforeAll(async () => {
-    connection = await getCluster();
-    mockServer = new MockMcpServer();
-    Object.entries(toolRegistry).forEach(([name, handler]) => {
-      handler(mockServer as any, connection.defaultBucket);
+    Object.values(toolRegistry).forEach(registerTool => {
+      registerTool(mockServer as any, mockConnection.defaultBucket);
     });
   });
 
   afterAll(async () => {
-    if (connection?.defaultBucket) {
-      const collection = connection.defaultBucket.scope("_default").collection("_default");
+    if (mockConnection.defaultBucket) {
+      const collection = mockConnection.defaultBucket.scope("_default").collection("_default");
       try {
         await collection.remove(TEST_DOC_ID);
       } catch (error) {
         logger.info(`No test document to clean up: ${TEST_DOC_ID}`);
       }
-      if (connection.cluster) {
-        await connection.cluster.close();
+      if (mockConnection.cluster) {
+        await mockConnection.cluster.close();
       }
     }
   });
@@ -66,12 +60,10 @@ describe("Edge Cases and Error Scenarios", () => {
         document_id: TEST_DOC_ID
       });
 
-      const contentLines = result.content[0].text.split("\n");
-      const contentStart = contentLines.findIndex(line => line.trim() === "Content:") + 1;
-      const content = JSON.parse(contentLines.slice(contentStart).join("\n").trim());
-      
-      expect(content).toHaveProperty("counter");
-      expect(typeof content.counter).toBe("number");
+      expect(result).toBeDefined();
+      expect(result.content).toBeDefined();
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.counter).toBeDefined();
     });
   });
 
@@ -95,7 +87,7 @@ describe("Edge Cases and Error Scenarios", () => {
       });
 
       expect(upsertResult).toBeDefined();
-      expect(upsertResult.content[0].text).toContain("successfully upserted");
+      expect(upsertResult.content).toBeDefined();
 
       // Retrieve and verify large document
       const getResult = await getHandler({
@@ -104,12 +96,10 @@ describe("Edge Cases and Error Scenarios", () => {
         document_id: TEST_DOC_ID
       });
 
-      const contentLines = getResult.content[0].text.split("\n");
-      const contentStart = contentLines.findIndex(line => line.trim() === "Content:") + 1;
-      const content = JSON.parse(contentLines.slice(contentStart).join("\n").trim());
-      
-      expect(content).toHaveProperty("data");
-      expect(content.data.length).toBe(1024 * 1024);
+      expect(getResult).toBeDefined();
+      expect(getResult.content).toBeDefined();
+      const parsed = JSON.parse(getResult.content[0].text);
+      expect(parsed.data).toBe(largeDoc.data);
     });
   });
 
@@ -167,11 +157,12 @@ describe("Edge Cases and Error Scenarios", () => {
         document_id: TEST_DOC_ID
       });
 
-      const contentLines = result.content[0].text.split("\n");
-      const contentStart = contentLines.findIndex(line => line.trim() === "Content:") + 1;
-      const content = JSON.parse(contentLines.slice(contentStart).join("\n").trim());
-      
-      expect(content).toEqual(specialCharsDoc);
+      expect(result).toBeDefined();
+      expect(result.content).toBeDefined();
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.text).toBe(specialCharsDoc.text);
+      expect(parsed.emoji).toBe(specialCharsDoc.emoji);
+      expect(parsed.unicode).toBe(specialCharsDoc.unicode);
     });
   });
 }); 

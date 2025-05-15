@@ -1,35 +1,29 @@
 /* tests/errorHandling.test.ts */
 
 import { expect, test, describe, beforeAll, afterAll } from "bun:test";
-import { getCluster } from "../src/lib/couchbaseConnector";
 import { logger } from "../src/lib/logger";
-import type { CapellaConn } from "../src/types";
-import { MockMcpServer } from "./tools.test";
+import { mockConnection, mockServer } from "./test.utils";
 import toolRegistry from "../src/tools";
 
 describe("Error Handling Tests", () => {
-    let connection: CapellaConn;
-    let mockServer: MockMcpServer;
     const TEST_DOC_ID = "error_handling_test_doc";
 
     beforeAll(async () => {
-        connection = await getCluster();
-        mockServer = new MockMcpServer();
-        Object.entries(toolRegistry).forEach(([name, handler]) => {
-            handler(mockServer as any, connection.defaultBucket);
+        Object.values(toolRegistry).forEach(registerTool => {
+            registerTool(mockServer as any, mockConnection.defaultBucket);
         });
     });
 
     afterAll(async () => {
-        if (connection?.defaultBucket) {
-            const collection = connection.defaultBucket.scope("_default").collection("_default");
+        if (mockConnection.defaultBucket) {
+            const collection = mockConnection.defaultBucket.scope("_default").collection("_default");
             try {
                 await collection.remove(TEST_DOC_ID);
             } catch (error) {
                 logger.info(`No test document to clean up: ${TEST_DOC_ID}`);
             }
-            if (connection.cluster) {
-                await connection.cluster.close();
+            if (mockConnection.cluster) {
+                await mockConnection.cluster.close();
             }
         }
     });
