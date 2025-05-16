@@ -30,10 +30,17 @@ const LoggingConfigSchema = z.object({
   includeMetadata: z.boolean().default(true),
 });
 
+const DocumentationConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  baseDirectory: z.string().min(1).default("/tmp/docs"),
+  fileExtension: z.string().default(".md"),
+});
+
 const ConfigSchema = z.object({
   server: ServerConfigSchema,
   database: DatabaseConfigSchema,
   logging: LoggingConfigSchema,
+  documentation: DocumentationConfigSchema,
 });
 
 type Config = z.infer<typeof ConfigSchema>;
@@ -63,6 +70,11 @@ const defaultConfig: Config = {
     format: "json",
     includeMetadata: true,
   },
+  documentation: {
+    enabled: true,
+    baseDirectory: "/tmp/docs",
+    fileExtension: ".md",
+  },
 };
 
 // Environment variable mapping
@@ -90,6 +102,11 @@ const envVarMapping = {
     format: "LOG_FORMAT",
     includeMetadata: "LOG_INCLUDE_METADATA",
   },
+  documentation: {
+    enabled: "DOCS_ENABLED",
+    baseDirectory: "DOCS_BASE_DIR",
+    fileExtension: "DOCS_FILE_EXT",
+  },
 };
 
 // Load configuration from environment variables
@@ -106,32 +123,41 @@ function loadConfigFromEnv(): Partial<Config> {
 
   // Load server config
   config.server = {
-    name: parseEnvVar(process.env[envVarMapping.server.name], "string") as string || defaultConfig.server.name,
-    version: parseEnvVar(process.env[envVarMapping.server.version], "string") as string || defaultConfig.server.version,
-    readOnlyQueryMode: parseEnvVar(process.env[envVarMapping.server.readOnlyQueryMode], "boolean") as boolean ?? defaultConfig.server.readOnlyQueryMode,
-    maxQueryTimeout: parseEnvVar(process.env[envVarMapping.server.maxQueryTimeout], "number") as number || defaultConfig.server.maxQueryTimeout,
-    maxResultsPerQuery: parseEnvVar(process.env[envVarMapping.server.maxResultsPerQuery], "number") as number || defaultConfig.server.maxResultsPerQuery,
-    transportMode: parseEnvVar(process.env[envVarMapping.server.transportMode], "string") as 'stdio' | 'sse' || defaultConfig.server.transportMode,
-    port: parseEnvVar(process.env[envVarMapping.server.port], "number") as number || defaultConfig.server.port,
+    name: parseEnvVar(Bun.env[envVarMapping.server.name], "string") as string || defaultConfig.server.name,
+    version: parseEnvVar(Bun.env[envVarMapping.server.version], "string") as string || defaultConfig.server.version,
+    readOnlyQueryMode: parseEnvVar(Bun.env[envVarMapping.server.readOnlyQueryMode], "boolean") as boolean ?? defaultConfig.server.readOnlyQueryMode,
+    maxQueryTimeout: parseEnvVar(Bun.env[envVarMapping.server.maxQueryTimeout], "number") as number || defaultConfig.server.maxQueryTimeout,
+    maxResultsPerQuery: parseEnvVar(Bun.env[envVarMapping.server.maxResultsPerQuery], "number") as number || defaultConfig.server.maxResultsPerQuery,
+    transportMode: parseEnvVar(Bun.env[envVarMapping.server.transportMode], "string") as 'stdio' | 'sse' || defaultConfig.server.transportMode,
+    port: parseEnvVar(Bun.env[envVarMapping.server.port], "number") as number || defaultConfig.server.port,
   };
 
   // Load database config
   config.database = {
-    connectionString: parseEnvVar(process.env[envVarMapping.database.connectionString], "string") as string || defaultConfig.database.connectionString,
-    username: parseEnvVar(process.env[envVarMapping.database.username], "string") as string || defaultConfig.database.username,
-    password: parseEnvVar(process.env[envVarMapping.database.password], "string") as string || defaultConfig.database.password,
-    bucketName: parseEnvVar(process.env[envVarMapping.database.bucketName], "string") as string || defaultConfig.database.bucketName,
-    defaultScope: parseEnvVar(process.env[envVarMapping.database.defaultScope], "string") as string || defaultConfig.database.defaultScope,
-    maxConnections: parseEnvVar(process.env[envVarMapping.database.maxConnections], "number") as number || defaultConfig.database.maxConnections,
-    connectionTimeout: parseEnvVar(process.env[envVarMapping.database.connectionTimeout], "number") as number || defaultConfig.database.connectionTimeout,
+    connectionString: parseEnvVar(Bun.env[envVarMapping.database.connectionString], "string") as string || defaultConfig.database.connectionString,
+    username: parseEnvVar(Bun.env[envVarMapping.database.username], "string") as string || defaultConfig.database.username,
+    password: parseEnvVar(Bun.env[envVarMapping.database.password], "string") as string || defaultConfig.database.password,
+    bucketName: parseEnvVar(Bun.env[envVarMapping.database.bucketName], "string") as string || defaultConfig.database.bucketName,
+    defaultScope: parseEnvVar(Bun.env[envVarMapping.database.defaultScope], "string") as string || defaultConfig.database.defaultScope,
+    maxConnections: parseEnvVar(Bun.env[envVarMapping.database.maxConnections], "number") as number || defaultConfig.database.maxConnections,
+    connectionTimeout: parseEnvVar(Bun.env[envVarMapping.database.connectionTimeout], "number") as number || defaultConfig.database.connectionTimeout,
   };
 
   // Load logging config
   config.logging = {
-    level: parseEnvVar(process.env[envVarMapping.logging.level], "string") as "debug" | "info" | "warn" | "error" || defaultConfig.logging.level,
-    format: parseEnvVar(process.env[envVarMapping.logging.format], "string") as "json" | "text" || defaultConfig.logging.format,
-    includeMetadata: parseEnvVar(process.env[envVarMapping.logging.includeMetadata], "boolean") as boolean ?? defaultConfig.logging.includeMetadata,
+    level: parseEnvVar(Bun.env[envVarMapping.logging.level], "string") as "debug" | "info" | "warn" | "error" || defaultConfig.logging.level,
+    format: parseEnvVar(Bun.env[envVarMapping.logging.format], "string") as "json" | "text" || defaultConfig.logging.format,
+    includeMetadata: parseEnvVar(Bun.env[envVarMapping.logging.includeMetadata], "boolean") as boolean ?? defaultConfig.logging.includeMetadata,
   };
+  
+  // Load documentation config
+  if (process.env[envVarMapping.documentation.enabled]) {
+    config.documentation = {
+      enabled: parseEnvVar(Bun.env[envVarMapping.documentation.enabled], "boolean") as boolean ?? defaultConfig.documentation!.enabled,
+      baseDirectory: parseEnvVar(Bun.env[envVarMapping.documentation.baseDirectory], "string") as string || defaultConfig.documentation!.baseDirectory,
+      fileExtension: parseEnvVar(Bun.env[envVarMapping.documentation.fileExtension], "string") as string || defaultConfig.documentation!.fileExtension,
+    };
+  }
 
   return config;
 }
@@ -146,6 +172,7 @@ try {
     server: { ...defaultConfig.server, ...envConfig.server },
     database: { ...defaultConfig.database, ...envConfig.database },
     logging: { ...defaultConfig.logging, ...envConfig.logging },
+    documentation: { ...defaultConfig.documentation, ...envConfig.documentation },
   };
 
   // Validate and set configuration
@@ -165,6 +192,11 @@ try {
     logging: {
       level: config.logging.level,
       format: config.logging.format,
+    },
+    documentation: {
+      enabled: config.documentation?.enabled || false,
+      baseDirectory: config.documentation?.baseDirectory || "./docs",
+      fileExtension: config.documentation?.fileExtension || ".md",
     },
   }, null, 2) + "\n");
 } catch (error) {
