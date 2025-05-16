@@ -179,6 +179,10 @@ export class CouchbaseConnectionManager {
   public getPoolSize(): number {
     return this.connectionPool.length;
   }
+
+  public getCluster(): Cluster | null {
+    return this.cluster;
+  }
 }
 
 export const connectionManager = CouchbaseConnectionManager.getInstance();

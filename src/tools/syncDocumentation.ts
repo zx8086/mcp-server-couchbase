@@ -8,6 +8,7 @@ import { z } from "zod";
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { config } from "../config";
+import { connectionManager } from "../lib/connectionManager";
 
 // Function to sanitize file paths to prevent directory traversal
 const sanitizePath = (inputPath: string): string => {
@@ -45,25 +46,32 @@ export default (server: McpServer, bucket: Bucket) => {
           scope: scope_name
         });
 
-        // Get all scopes and collections
+        // Use system:keyspaces to get collections for the current bucket and scope
+        const bucketName = config.database.bucketName;
+        const cluster = connectionManager.getCluster();
+        if (!cluster) {
+          throw new Error("Cluster connection is not available");
+        }
         const query = scope_name
-          ? `SELECT DISTINCT scope_name, collection_name FROM system:collections WHERE scope_name = $scope_name`
-          : `SELECT DISTINCT scope_name, collection_name FROM system:collections`;
-        const parameters = scope_name ? { scope_name } : {};
+          ? "SELECT `scope`, `name` AS collection_name FROM system:keyspaces WHERE `bucket` = $bucket AND `scope` = $scope"
+          : "SELECT `scope`, `name` AS collection_name FROM system:keyspaces WHERE `bucket` = $bucket";
+        const parameters = scope_name
+          ? { scope: scope_name, bucket: bucketName }
+          : { bucket: bucketName };
         logger.debug("[sync_documentation_with_database] Querying collections", { query, parameters });
-        
-        const result = await bucket.scope('_system').query(query, {
-          parameters
-        });
+
+        const result = await cluster.query(query, { parameters });
         logger.debug("[sync_documentation_with_database] Query result", { rows: result.rows });
 
+        // Group collections by scope
         const scopes = new Map<string, Set<string>>();
         for (const row of result.rows) {
-          const { scope_name, collection_name } = row;
-          if (!scopes.has(scope_name)) {
-            scopes.set(scope_name, new Set());
+          const { scope, collection_name } = row;
+          if (!scope || !collection_name) continue;
+          if (!scopes.has(scope)) {
+            scopes.set(scope, new Set());
           }
-          scopes.get(scope_name)!.add(collection_name);
+          scopes.get(scope)!.add(collection_name);
         }
 
         // Create documentation structure
