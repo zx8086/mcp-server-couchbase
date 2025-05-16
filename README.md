@@ -10,18 +10,47 @@ An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase th
 ## Features
 
 ### Tools
+#### Database Operations
 - `get_scopes_and_collections`: List all scopes and collections in the specified bucket
-- `get_schema_for_collection`: Get the structure for a collection
+- `get_schema_for_collection`: Get the structure and schema for a specific collection
 - `get_document_by_id`: Retrieve a document by ID from a specified scope and collection
 - `upsert_document_by_id`: Create or update a document by ID in a specified scope and collection
 - `delete_document_by_id`: Remove a document by ID from a specified scope and collection
 - `run_sql_plus_plus_query`: Execute [SQL++ queries](https://www.couchbase.com/sqlplusplus/) on a specified scope
+
+#### Query Analysis
+- `get_detailed_indexes`: Get comprehensive information about database indexes
+- `get_detailed_prepared_statements`: View detailed information about prepared statements
+- `get_system_vitals`: Monitor system health metrics
+- `get_system_nodes`: View information about cluster nodes
+- `get_most_expensive_queries`: Identify queries with highest resource consumption
+- `suggest_query_optimizations`: Get recommendations for query performance improvements
+- `analyze_document_structure`: Analyze and understand document structure patterns
+- `get_document_type_examples`: View example documents for different types
+- `get_prepared_statements`: List all prepared statements
+- `get_indexes_to_drop`: Identify unused or redundant indexes
+- `get_completed_requests`: View completed query requests
+- `get_system_indexes`: List all system indexes
+- `get_primary_index_queries`: Identify queries using primary indexes
+- `get_largest_result_count_queries`: Find queries returning the most results
+- `get_largest_result_size_queries`: Identify queries with largest result sizes
+- `get_most_frequent_queries`: View most commonly executed queries
+- `get_longest_running_queries`: Identify queries with longest execution times
+- `get_fatal_requests`: View failed query requests
+
+#### Documentation Management
+- `list_documentation`: List available documentation for the MCP server tools and features
+- `create_documentation`: Create new documentation entries for tools and features
+- `delete_documentation`: Remove documentation entries
+- `sync_documentation`: Synchronize and update existing documentation
 
 ### Resources
 - Database Structure Resource: Access and manage database structure information
 - Schema Resource: Handle collection schemas and validation
 - Document Resource: Manage document operations and CRUD functionality
 - Query Resource: Handle SQL++ query operations and results
+- Query Analysis Resource: Monitor and optimize query performance
+- Documentation Resource: Manage tool and feature documentation
 
 ### Security Features
 - `READ_ONLY_QUERY_MODE`: Default enabled setting to prevent SQL++ queries from modifying data
@@ -64,7 +93,7 @@ cp .env.example .env
 
 ### Server Configuration for MCP Clients
 
-This is the common configuration for the MCP clients such as Claude Desktop, Cursor, Windsurf Editor.
+This is the configuration for the MCP clients such as Claude Desktop, Cursor, Windsurf Editor.
 
 ```json
 {
@@ -72,10 +101,9 @@ This is the common configuration for the MCP clients such as Claude Desktop, Cur
     "couchbase-capella-mcp": {
       "command": "bun",
       "args": [
-        "--directory",
-        "path/to/cloned/repo/mcp-server-couchbase-bun/",
-        "run",
-        "dist/index.js"
+        "/path/to/your/mcp-server-couchbase/dist/index.js",
+        "--transport",
+        "stdio"
       ],
       "env": {
         "COUCHBASE_URL": "couchbases://your-cluster-url",
@@ -83,59 +111,35 @@ This is the common configuration for the MCP clients such as Claude Desktop, Cur
         "COUCHBASE_PASSWORD": "your-password",
         "COUCHBASE_BUCKET": "your-bucket",
         "COUCHBASE_SCOPE": "your-scope",
-        "COUCHBASE_COLLECTION": "your-collection"
-      }
+        "COUCHBASE_COLLECTION": "your-collection",
+        "LOG_LEVEL": "debug",
+        "DOCS_ENABLED": "true",
+        "DOCS_BASE_DIR": "/path/to/your/mcp-server-couchbase/docs",
+        "DOCS_FILE_EXT": ".md",
+        "PWD": "/path/to/your/mcp-server-couchbase",
+        "PATH": "/Users/your-username/.bun/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      },
+      "cwd": "/path/to/your/mcp-server-couchbase"
     }
   }
 }
 ```
 
-#### Alternative Batch File Configuration
-
-You can also use a batch file configuration for easier setup. Create a shell script (e.g., `start-mcp-couchbase-server.sh`) with the following content:
-
-```bash
-#!/bin/bash
-cd /path/to/mcp-server-couchbase
-bun run dist/index.js
-```
-
-Make the script executable:
-```bash
-chmod +x start-mcp-couchbase-server.sh
-```
-
-Then use this configuration in your MCP client:
-
-```json
-{
-  "mcpServers": {
-    "couchbase-capella-mcp": {
-      "command": "/path/to/start-mcp-couchbase-server.sh",
-      "args": [],
-      "env": {
-        "COUCHBASE_URL": "couchbases://your-cluster-url",
-        "COUCHBASE_USERNAME": "your-username",
-        "COUCHBASE_PASSWORD": "your-password",
-        "COUCHBASE_BUCKET": "your-bucket",
-        "COUCHBASE_SCOPE": "your-scope",
-        "COUCHBASE_COLLECTION": "your-collection"
-      }
-    }
-  }
-}
-```
+> Note: Replace all `/path/to/your/mcp-server-couchbase` with the actual path to your cloned repository. Also, update the environment variables with your specific Couchbase cluster details.
 
 The server can be configured using environment variables. The following variables are supported:
 
-- `CB_CONNECTION_STRING`: The connection string to the Couchbase cluster
-- `CB_USERNAME`: The username with access to the bucket to use to connect
-- `CB_PASSWORD`: The password for the username to connect
-- `CB_BUCKET_NAME`: The name of the bucket that the server will access
+- `COUCHBASE_URL`: The connection string to the Couchbase cluster
+- `COUCHBASE_USERNAME`: The username with access to the bucket to use to connect
+- `COUCHBASE_PASSWORD`: The password for the username to connect
+- `COUCHBASE_BUCKET`: The name of the bucket that the server will access
+- `COUCHBASE_SCOPE`: The scope to use within the bucket
+- `COUCHBASE_COLLECTION`: The collection to use within the scope
+- `LOG_LEVEL`: The logging level (e.g., "debug", "info", "warn", "error")
+- `DOCS_ENABLED`: Enable/disable documentation features
+- `DOCS_BASE_DIR`: Base directory for documentation files
+- `DOCS_FILE_EXT`: File extension for documentation files
 - `READ_ONLY_QUERY_MODE`: Setting to configure whether SQL++ queries that allow data to be modified are allowed. It is set to True by default.
-- `path/to/cloned/repo/mcp-server-couchbase-bun/` should be the path to the cloned repository on your local machine. Don't forget the trailing slash at the end!
-
-> Note: If you have other MCP servers in use in the client, you can add it to the existing `mcpServers` object.
 
 ### Running the Server
 
@@ -202,7 +206,7 @@ This implementation offers several advantages over the original Python version:
 
 ---
 
-## 📢 Support Policy
+## �� Support Policy
 
 We truly appreciate your interest in this project!
 This project is **community-maintained**, which means it's **not officially supported** by our support team.
