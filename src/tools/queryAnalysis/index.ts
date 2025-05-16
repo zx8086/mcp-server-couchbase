@@ -14,6 +14,10 @@ import getPreparedStatements from './getPreparedStatements';
 import getDocumentTypeExamples from './getDocumentTypeExamples';
 import analyzeDocumentStructure from './analyzeDocumentStructure';
 import suggestQueryOptimizations from './suggestQueryOptimizations';
+import getSystemNodes from './getSystemNodes';
+import getSystemVitals from './getSystemVitals';
+import getDetailedPreparedStatements from './getDetailedPreparedStatements';
+import getDetailedIndexes from './getDetailedIndexes';
 
 export {
   getFatalRequests,
@@ -29,7 +33,11 @@ export {
   getPreparedStatements,
   getDocumentTypeExamples,
   analyzeDocumentStructure,
-  suggestQueryOptimizations
+  suggestQueryOptimizations,
+  getSystemNodes,
+  getSystemVitals,
+  getDetailedPreparedStatements,
+  getDetailedIndexes
 };
 
 // Export all tools as a single object
@@ -47,7 +55,11 @@ export const queryAnalysisTools = {
   getPreparedStatements,
   getDocumentTypeExamples,
   analyzeDocumentStructure,
-  suggestQueryOptimizations
+  suggestQueryOptimizations,
+  getSystemNodes,
+  getSystemVitals,
+  getDetailedPreparedStatements,
+  getDetailedIndexes
 };
 
 export default queryAnalysisTools;

@@ -202,3 +202,23 @@ FROM default._default._default AS d
 WHERE d.documentType IS NOT NULL
 GROUP BY d.documentType;
 `;
+
+// System Information Queries
+export const systemNodesQuery: string = `
+SELECT * FROM system:nodes;
+`;
+
+export const systemVitalsQuery: string = `
+SELECT * FROM system:vitals;
+`;
+
+export const detailedPreparedStatementsQuery: string = `
+SELECT * FROM system:prepareds
+ORDER BY uses DESC;
+`;
+
+export const detailedIndexesQuery: string = `
+SELECT t.*
+FROM system:indexes t
+ORDER BY t.keyspace_id, t.name;
+`;

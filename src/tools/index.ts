@@ -61,6 +61,12 @@ export const toolRegistry: Record<string, ToolFunction> = {
     get_document_type_examples: queryAnalysisTools.getDocumentTypeExamples,
     analyze_document_structure: queryAnalysisTools.analyzeDocumentStructure,
     suggest_query_optimizations: queryAnalysisTools.suggestQueryOptimizations,
+    
+    // System information tools
+    get_system_nodes: queryAnalysisTools.getSystemNodes,
+    get_system_vitals: queryAnalysisTools.getSystemVitals,
+    get_detailed_prepared_statements: queryAnalysisTools.getDetailedPreparedStatements,
+    get_detailed_indexes: queryAnalysisTools.getDetailedIndexes,
 };
 
 export default toolRegistry;
