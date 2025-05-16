@@ -29,7 +29,6 @@ export class CouchbaseConnectionManager {
     if (!this.initializationPromise) {
       logger.info("Initializing Couchbase connection manager");
       this.initializationPromise = this.initializeConnection();
-      this.startHealthCheck();
     }
     return this.initializationPromise;
   }
@@ -49,6 +48,7 @@ export class CouchbaseConnectionManager {
       this.bucket = this.cluster.bucket(config.database.bucketName);
       await this.initializeConnectionPool();
       this.isHealthy = true;
+      this.startHealthCheck();
 
       logger.info("Successfully connected to Couchbase cluster");
     } catch (error) {

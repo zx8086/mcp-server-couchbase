@@ -104,12 +104,41 @@ export async function setupServer(): Promise<{
   return { server, transport, bucket };
 }
 
+// Exponential backoff with circuit breaker for Couchbase connection
+async function connectWithBackoffAndCircuitBreaker(
+  maxAttempts = 10,
+  baseDelayMs = 1000,
+  maxDelayMs = 30000,
+  circuitBreakerThreshold = 5,
+  circuitBreakerCooldownMs = 60000
+) {
+  let failures = 0;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await connectionManager.initialize();
+      return; // Success!
+    } catch (err) {
+      failures++;
+      logger.error(`Couchbase connection failed (attempt ${attempt}/${maxAttempts}): ${err instanceof Error ? err.message : String(err)}`);
+      if (failures >= circuitBreakerThreshold) {
+        logger.error(`Circuit breaker tripped. Pausing for ${circuitBreakerCooldownMs / 1000}s`);
+        await sleep(circuitBreakerCooldownMs);
+        failures = 0; // Reset after cooldown
+      } else {
+        const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), maxDelayMs);
+        await sleep(delay);
+      }
+    }
+  }
+  throw new Error('Failed to connect to Couchbase after multiple attempts');
+}
+
 async function main(): Promise<void> {
   try {
     logger.info("Starting Couchbase MCP Server...");
     
-    // Initialize the connection manager
-    await connectionManager.initialize();
+    // Initialize the connection manager with backoff and circuit breaker
+    await connectWithBackoffAndCircuitBreaker();
     
     const { server, transport } = await setupServer();
     await server.connect(transport);
