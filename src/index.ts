@@ -47,14 +47,26 @@ export async function createServer(bucket: any): Promise<McpServer> {
 
     // Add a public method to read resources by URI
     (server as any).readResourceByUri = async function(resourceUri) {
-        // Try both _resources and resources
-        const resourceMap = (this as any)._resources || (this as any).resources;
+        // Root cause explanation:
+        // Some SDK versions store resources as a Map (iterable), others as a plain object (not iterable).
+        // We must support both cases for compatibility.
+        const resourceMap =
+          (this as any)._resources ||
+          (this as any).resources ||
+          (this as any)._registeredResources;
         if (!resourceMap) {
-            // Debug log: print all keys on the server instance
             console.error("No resource registry found on server instance. Available keys:", Object.keys(this));
-            throw new Error("No resource registry found on server instance (tried _resources and resources)");
+            throw new Error("No resource registry found on server instance (tried _resources, resources, _registeredResources)");
         }
-        for (const [_, resource] of resourceMap) {
+        let resourcesIterable;
+        if (resourceMap instanceof Map) {
+            resourcesIterable = resourceMap.values();
+        } else if (typeof resourceMap === 'object') {
+            resourcesIterable = Object.values(resourceMap);
+        } else {
+            throw new Error("Resource registry is not iterable");
+        }
+        for (const resource of resourcesIterable) {
             if (resource.template && resource.template.match) {
                 const match = resource.template.match(resourceUri);
                 if (match) {
