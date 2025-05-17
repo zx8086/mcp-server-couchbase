@@ -45,6 +45,26 @@ export async function createServer(bucket: any): Promise<McpServer> {
     // Register all Couchbase resources
     registerAllResources(server, bucket);
 
+    // Add a public method to read resources by URI
+    (server as any).readResourceByUri = async function(resourceUri) {
+        // Try both _resources and resources
+        const resourceMap = (this as any)._resources || (this as any).resources;
+        if (!resourceMap) {
+            // Debug log: print all keys on the server instance
+            console.error("No resource registry found on server instance. Available keys:", Object.keys(this));
+            throw new Error("No resource registry found on server instance (tried _resources and resources)");
+        }
+        for (const [_, resource] of resourceMap) {
+            if (resource.template && resource.template.match) {
+                const match = resource.template.match(resourceUri);
+                if (match) {
+                    return await resource.handler({ href: resourceUri }, match);
+                }
+            }
+        }
+        throw new Error(`No resource handler found for URI: ${resourceUri}`);
+    }.bind(server);
+
     // Register ping handlers for both protocol and tool usage
     registerPingHandlers(server);
 

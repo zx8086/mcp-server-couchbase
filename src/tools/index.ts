@@ -10,6 +10,7 @@ import createDocumentation from './createDocumentation';
 import listDocumentation from './listDocumentation';
 import deleteDocumentation from './deleteDocumentation';
 import syncDocumentation from './syncDocumentation';
+import readDocumentation from './readDocumentation';
 
 // Import query analysis tools
 import { queryAnalysisTools } from './queryAnalysis';
@@ -24,6 +25,7 @@ const registerDocumentationTools = (server: McpServer, bucket: Bucket) => {
   listDocumentation(server, bucket);
   deleteDocumentation(server, bucket);
   syncDocumentation(server, bucket);
+  readDocumentation(server, bucket);
 };
 
 // Register all query analysis tools
@@ -43,6 +45,7 @@ export const toolRegistry: Record<string, ToolFunction> = {
     // Documentation tools
     create_documentation: createDocumentation,
     list_documentation: listDocumentation,
+    read_documentation: readDocumentation,
     delete_documentation: deleteDocumentation,
     sync_documentation_with_database: syncDocumentation,
     

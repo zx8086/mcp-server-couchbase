@@ -100,7 +100,7 @@ describe("Integration Tests", () => {
       // 2. Query documents
       const queryResult = await queryHandler({
         scope_name: "_default",
-        query: "SELECT * FROM `default`.`_default`.`_default` USE KEYS 'test_doc_3'"
+        query: "SELECT * FROM `_default` USE KEYS 'test_doc_3'"
       });
       expect(queryResult).toBeDefined();
       expect(queryResult.content[0].text).toContain("[");

@@ -1,5 +1,8 @@
 /* src/lib/runSqlPlusPlusQuery.ts */
 
+// IMPORTANT: When using the SDK's scope context, queries should only reference the collection name.
+// Example: SELECT * FROM `assignments` (NOT FROM `bucket`.`scope`.`collection`)
+
 import type { OperationContext, QueryResult } from './types';
 import { createError } from './errors';
 import { logger, measureOperation, createContextLogger } from './logger';
@@ -23,6 +26,11 @@ export async function runSqlPlusPlusQuery(
     scope: scopeName,
     queryLength: query.length,
   });
+
+  // Warn if the query references a dot, which may indicate an incorrect path
+  if (/from\s+[`\w]+\.[`\w]+\.[`\w]+/i.test(query)) {
+    requestLogger.warn('Query references bucket.scope.collection path. When using scope context, only use the collection name in the query.', { query });
+  }
 
   const parsedQuery = sqlppParser.parse(query);
 
