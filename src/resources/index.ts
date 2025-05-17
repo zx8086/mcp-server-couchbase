@@ -7,9 +7,10 @@ import { registerSchemaResource } from "./schemaResource";
 import { registerDocumentResource } from "./documentResource";
 import { registerQueryResource } from "./queryResource";
 import { registerMarkdownDocumentationResource } from "./documentationResource";
+import { registerPlaybookResources } from "./playbookResource";
 import { config } from "../config";
 
-export function registerAllResources(server: McpServer, bucket: Bucket): void {
+export async function registerAllResources(server: McpServer, bucket: Bucket): Promise<void> {
   registerDatabaseStructureResource(server, bucket);
   registerSchemaResource(server, bucket);
   registerDocumentResource(server, bucket);
@@ -22,4 +23,7 @@ export function registerAllResources(server: McpServer, bucket: Bucket): void {
       fileExtension: config.documentation.fileExtension || '.md'
     });
   }
+
+  // Register static playbook resources
+  await registerPlaybookResources(server);
 }
