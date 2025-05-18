@@ -1,19 +1,8 @@
-/* src/tools/listDocumentation.ts */
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
-import { createError } from "../lib/errors";
 import { z } from "zod";
-import * as fs from 'fs/promises';
-import * as path from 'path';
 import { config } from "../config";
-
-// Function to sanitize file paths to prevent directory traversal
-const sanitizePath = (inputPath: string): string => {
-  return path.normalize(inputPath)
-    .replace(/^(\.\.(\/|\\|$))+/, '');
-};
 
 export default (server: McpServer, bucket: Bucket) => {
   server.tool(
@@ -31,88 +20,62 @@ export default (server: McpServer, bucket: Bucket) => {
           ]
         };
       }
-      // Always define baseDirectory here
-      const baseDirectory = config.documentation.baseDirectory || './docs';
+      
+      let resourceUri: string;
+      
+      if (!scope_name) {
+        resourceUri = 'docs://';
+      } else if (collection_name) {
+        resourceUri = `docs://${scope_name}/${collection_name}`;
+      } else {
+        resourceUri = `docs://${scope_name}`;
+      }
+      
       try {
         logger.info("Listing documentation", {
+          resourceUri,
           scope: scope_name,
           collection: collection_name
         });
-
-        let content = "# Available Documentation\n\n";
-        let currentPath = baseDirectory;
-
-        if (scope_name) {
-          currentPath = path.join(currentPath, sanitizePath(scope_name));
-          content += `## Scope: ${scope_name}\n\n`;
-
-          if (collection_name) {
-            currentPath = path.join(currentPath, sanitizePath(collection_name));
-            content += `### Collection: ${collection_name}\n\n`;
-            
-            try {
-              const files = await fs.readdir(currentPath);
-              const docFiles = files.filter(file => file.endsWith(config.documentation?.fileExtension || '.md'));
-              
-              if (docFiles.length === 0) {
-                content += "No documentation files found in this collection.\n";
-              } else {
-                content += "Available documentation files:\n\n";
-                for (const file of docFiles) {
-                  const fileName = file.replace(config.documentation?.fileExtension || '.md', '');
-                  content += `- [${fileName}](docs://${scope_name}/${collection_name}/${fileName})\n`;
-                }
+        
+        // Use the resource URI handler to get documentation listing
+        const resourceResult = await (server as any).readResourceByUri(resourceUri);
+        
+        if (!resourceResult || !resourceResult.contents || resourceResult.contents.length === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No documentation found at ${resourceUri}`
               }
-            } catch (error) {
-              content += "No documentation found for this collection.\n";
-            }
-          } else {
-            try {
-              const collections = await fs.readdir(currentPath);
-              if (collections.length === 0) {
-                content += "No collections found in this scope.\n";
-              } else {
-                content += "Available collections:\n\n";
-                for (const collection of collections) {
-                  content += `- [${collection}](docs://${scope_name}/${collection})\n`;
-                }
-              }
-            } catch (error) {
-              content += "No documentation found for this scope.\n";
-            }
-          }
-        } else {
-          try {
-            const scopes = await fs.readdir(currentPath);
-            if (scopes.length === 0) {
-              content += "No documentation found.\n";
-            } else {
-              content += "Available scopes:\n\n";
-              for (const scope of scopes) {
-                content += `- [${scope}](docs://${scope})\n`;
-              }
-            }
-          } catch (error) {
-            content += "No documentation found.\n";
-          }
+            ]
+          };
         }
-
+        
+        // Map the resource content to the tool response format
         return {
-          content: [
-            {
-              type: "text",
-              text: content
-            }
-          ]
+          content: resourceResult.contents.map(content => ({
+            type: "text",
+            text: content.text || `[Binary content of type ${content.mimeType}]`
+          }))
         };
       } catch (error) {
         logger.error("Error listing documentation", {
           error: error instanceof Error ? error.message : String(error),
+          resourceUri,
           scope: scope_name,
           collection: collection_name
         });
-        throw error;
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error listing documentation: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ]
+        };
       }
     }
   );
-}; 
+};

@@ -1,5 +1,3 @@
-/* src/tools/readDocumentation.ts */
-
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";
@@ -48,9 +46,10 @@ export default (server: McpServer, bucket: Bucket) => {
           };
         }
         
+        // Map the resource content to the tool response format
         return {
           content: resourceResult.contents.map(content => ({
-            type: content.type === "text/markdown" ? "markdown" : "text",
+            type: "text",
             text: content.text || `[Binary content of type ${content.mimeType}]`
           }))
         };
@@ -74,4 +73,4 @@ export default (server: McpServer, bucket: Bucket) => {
       }
     }
   );
-};  
+};

@@ -176,22 +176,40 @@ export async function registerPlaybookResources(server: McpServer): Promise<void
     const handler = new PlaybookHandler(playbookDir, config.playbooks.fileExtension);
     await handler.initialize();
     
-    // Register the directory resource (works well)
+    // Register resources - both for resources/list and resources/read
+    // First register with the original method that works with resources/read
     server.resource(
       "playbook-directory",  // Resource ID
       "playbook://",         // URI
       async (uri) => {
+        logger.info("Handling direct resource request for playbook-directory", { uri: uri.href });
         return handler.listPlaybooks();
       }
     );
     
-    // Fix for template listing: manually register a handler for specific playbooks
-    // This bypasses the templating system but still allows individual playbooks to be accessed
-    // NOTE: This doesn't register in the templates list, but the access works
+    // Also register specific handlers for individual playbooks
+    const playbooks = await fs.readdir(playbookDir);
+    const playbookFiles = playbooks.filter(file => file.endsWith(config.playbooks.fileExtension || ".md"));
+    
+    for (const file of playbookFiles) {
+      const resourceId = file.replace(new RegExp(`\\${config.playbooks.fileExtension || ".md"}$`), '');
+      const resourceUri = `playbook://${resourceId}`;
+      
+      // Register each playbook as a separate resource
+      server.resource(
+        `playbook-${resourceId}`,  // Resource ID
+        resourceUri,               // URI
+        async (uri) => {
+          logger.info(`Handling direct resource request for playbook: ${resourceId}`, { uri: uri.href });
+          return handler.getPlaybook(resourceId);
+        }
+      );
+    }
     
     // Expose a method for tools to easily access resources by URI
     (server as any).readResourceByUri = async function(resourceUri: string) {
       try {
+        logger.info(`Handling readResourceByUri for: ${resourceUri}`);
         // Simple URL parsing without using URL constructor (for compatibility)
         const protocol = resourceUri.split('://')[0];
         const path = resourceUri.split('://')[1] || '';
@@ -201,6 +219,25 @@ export async function registerPlaybookResources(server: McpServer): Promise<void
             return handler.listPlaybooks();
           } else {
             return handler.getPlaybook(path);
+          }
+        }
+        
+        // Look through server resources for a matching URI
+        const resourceMap = (this as any)._resources || (this as any).resources || new Map();
+        if (resourceMap instanceof Map) {
+          for (const [id, resource] of resourceMap.entries()) {
+            if (resource.uri === resourceUri) {
+              logger.info(`Found matching resource for ${resourceUri}: ${id}`);
+              return resource.handler({ href: resourceUri }, {});
+            }
+          }
+        } else if (typeof resourceMap === 'object') {
+          for (const id in resourceMap) {
+            const resource = resourceMap[id];
+            if (resource.uri === resourceUri) {
+              logger.info(`Found matching resource for ${resourceUri}: ${id}`);
+              return resource.handler({ href: resourceUri }, {});
+            }
           }
         }
         
@@ -218,8 +255,24 @@ export async function registerPlaybookResources(server: McpServer): Promise<void
     (server as any).setRequestHandler({
       method: "resources/templates/list"
     }, async () => {
-      // Return an empty list of templates to avoid the error
+      logger.info("Custom handler for resources/templates/list called");
+      // Return an empty but properly structured templates array
       return { templates: [] };
+    });
+    
+    // Also handle resources/list to include our resources
+    (server as any).setRequestHandler({
+      method: "resources/list"
+    }, async () => {
+      logger.info("Custom handler for resources/list called");
+      return { 
+        resources: [{
+          id: "playbook-directory",
+          uri: "playbook://",
+          name: "Playbook Directory",
+          description: "Directory of available playbooks"
+        }]
+      };
     });
     
     logger.info("Playbook resources registered successfully");
