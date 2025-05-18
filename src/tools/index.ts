@@ -11,6 +11,7 @@ import listDocumentation from './listDocumentation';
 import deleteDocumentation from './deleteDocumentation';
 import syncDocumentation from './syncDocumentation';
 import readDocumentation from './readDocumentation';
+import listPlaybooks from './listPlaybooks';
 
 // Import query analysis tools
 import { queryAnalysisTools } from './queryAnalysis';
@@ -33,6 +34,11 @@ const registerQueryAnalysisTools = (server: McpServer, bucket: Bucket) => {
   Object.values(queryAnalysisTools).forEach(tool => tool(server, bucket));
 };
 
+// Register all playbook tools
+const registerPlaybookTools = (server: McpServer, bucket: Bucket) => {
+  listPlaybooks(server, bucket);
+};
+
 export const toolRegistry: Record<string, ToolFunction> = {
     // Core database tools
     get_scopes_and_collections: getScopesAndCollections,
@@ -48,6 +54,9 @@ export const toolRegistry: Record<string, ToolFunction> = {
     read_documentation: readDocumentation,
     delete_documentation: deleteDocumentation,
     sync_documentation_with_database: syncDocumentation,
+    
+    // Playbook tools
+    list_playbooks: listPlaybooks,
     
     // Query analysis tools
     get_fatal_requests: queryAnalysisTools.getFatalRequests,

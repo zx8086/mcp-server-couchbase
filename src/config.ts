@@ -3,7 +3,6 @@
 import { z } from "zod";
 import { createError } from "./lib/errors";
 
-// Configuration schema
 const ServerConfigSchema = z.object({
   name: z.string().min(1),
   version: z.string().min(1),
@@ -36,11 +35,18 @@ const DocumentationConfigSchema = z.object({
   fileExtension: z.string().default(".md"),
 });
 
+const PlaybooksConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  baseDirectory: z.string().min(1).default("./playbook"),
+  fileExtension: z.string().default(".md"),
+});
+
 const ConfigSchema = z.object({
   server: ServerConfigSchema,
   database: DatabaseConfigSchema,
   logging: LoggingConfigSchema,
   documentation: DocumentationConfigSchema,
+  playbooks: PlaybooksConfigSchema,
 });
 
 type Config = z.infer<typeof ConfigSchema>;
@@ -75,6 +81,11 @@ const defaultConfig: Config = {
     baseDirectory: "/tmp/docs",
     fileExtension: ".md",
   },
+  playbooks: {
+    enabled: true,
+    baseDirectory: "./playbook",
+    fileExtension: ".md",
+  },
 };
 
 // Environment variable mapping
@@ -106,6 +117,11 @@ const envVarMapping = {
     enabled: "DOCS_ENABLED",
     baseDirectory: "DOCS_BASE_DIR",
     fileExtension: "DOCS_FILE_EXT",
+  },
+  playbooks: {
+    enabled: "PLAYBOOKS_ENABLED",
+    baseDirectory: "PLAYBOOKS_BASE_DIR",
+    fileExtension: "PLAYBOOKS_FILE_EXT",
   },
 };
 
@@ -151,11 +167,20 @@ function loadConfigFromEnv(): Partial<Config> {
   };
   
   // Load documentation config
-  if (process.env[envVarMapping.documentation.enabled]) {
+  if (Bun.env[envVarMapping.documentation.enabled]) {
     config.documentation = {
       enabled: parseEnvVar(Bun.env[envVarMapping.documentation.enabled], "boolean") as boolean ?? defaultConfig.documentation!.enabled,
       baseDirectory: parseEnvVar(Bun.env[envVarMapping.documentation.baseDirectory], "string") as string || defaultConfig.documentation!.baseDirectory,
       fileExtension: parseEnvVar(Bun.env[envVarMapping.documentation.fileExtension], "string") as string || defaultConfig.documentation!.fileExtension,
+    };
+  }
+
+  // Load playbooks config
+  if (Bun.env[envVarMapping.playbooks.enabled]) {
+    config.playbooks = {
+      enabled: parseEnvVar(Bun.env[envVarMapping.playbooks.enabled], "boolean") as boolean ?? defaultConfig.playbooks!.enabled,
+      baseDirectory: parseEnvVar(Bun.env[envVarMapping.playbooks.baseDirectory], "string") as string || defaultConfig.playbooks!.baseDirectory,
+      fileExtension: parseEnvVar(Bun.env[envVarMapping.playbooks.fileExtension], "string") as string || defaultConfig.playbooks!.fileExtension,
     };
   }
 
@@ -173,6 +198,7 @@ try {
     database: { ...defaultConfig.database, ...envConfig.database },
     logging: { ...defaultConfig.logging, ...envConfig.logging },
     documentation: { ...defaultConfig.documentation, ...envConfig.documentation },
+    playbooks: { ...defaultConfig.playbooks, ...envConfig.playbooks },
   };
 
   // Validate and set configuration
@@ -197,6 +223,11 @@ try {
       enabled: config.documentation?.enabled || false,
       baseDirectory: config.documentation?.baseDirectory || "./docs",
       fileExtension: config.documentation?.fileExtension || ".md",
+    },
+    playbooks: {
+      enabled: config.playbooks?.enabled || false,
+      baseDirectory: config.playbooks?.baseDirectory || "./playbook",
+      fileExtension: config.playbooks?.fileExtension || ".md",
     },
   }, null, 2) + "\n");
 } catch (error) {
