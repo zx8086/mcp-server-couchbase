@@ -1,3 +1,5 @@
+/* src/resources/playbookResource.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as fs from "fs/promises";
 import * as path from "path";

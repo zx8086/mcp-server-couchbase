@@ -1,3 +1,5 @@
+/* tests/resources.test.ts */
+
 import { describe, it, expect, beforeEach, mock } from 'bun:test';
 // import { McpServer } from '@modelcontextprotocol/sdk';
 import { registerResourceMethods } from '../src/lib/resources';

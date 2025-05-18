@@ -1,3 +1,5 @@
+/* src/tools/readDocumentation.ts */
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "../lib/logger";
 import type { Bucket } from "couchbase";

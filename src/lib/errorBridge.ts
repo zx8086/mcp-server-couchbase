@@ -1,3 +1,5 @@
+/* src/lib/errorBridge.ts */
+
 import { AppError, ErrorCode, createError } from './errors';
 import { McpError, McpErrorCode, createMcpError, MCP_ERROR_CODES } from './mcpErrors';
 

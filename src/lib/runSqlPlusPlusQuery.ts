@@ -1,8 +1,5 @@
 /* src/lib/runSqlPlusPlusQuery.ts */
 
-// IMPORTANT: When using the SDK's scope context, queries should only reference the collection name.
-// Example: SELECT * FROM `assignments` (NOT FROM `bucket`.`scope`.`collection`)
-
 import type { OperationContext, QueryResult } from './types';
 import { createError } from './errors';
 import { logger, measureOperation, createContextLogger } from './logger';

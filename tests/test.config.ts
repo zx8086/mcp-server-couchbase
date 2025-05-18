@@ -1,3 +1,5 @@
+/* tests/test.config.ts */
+
 import { z } from "zod";
 
 export const testConfig = {
