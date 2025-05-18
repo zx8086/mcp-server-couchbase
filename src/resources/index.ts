@@ -11,6 +11,10 @@ import { registerPlaybookResources } from "./playbookResource";
 import { config } from "../config";
 
 export async function registerAllResources(server: McpServer, bucket: Bucket): Promise<void> {
+  // Register playbook resources first - this is important for proper URI registration
+  await registerPlaybookResources(server);
+  
+  // Register other resources
   registerDatabaseStructureResource(server, bucket);
   registerSchemaResource(server, bucket);
   registerDocumentResource(server, bucket);
@@ -23,7 +27,4 @@ export async function registerAllResources(server: McpServer, bucket: Bucket): P
       fileExtension: config.documentation.fileExtension || '.md'
     });
   }
-
-  // Register static playbook resources
-  await registerPlaybookResources(server);
 }
