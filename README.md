@@ -231,7 +231,7 @@ This implementation offers several advantages over the original Python version:
 ## Support Policy
 
 We truly appreciate your interest in this project!
-This project is **community-maintained**, which means it's **not officially supported** by our support team.
+This project is **community-maintained**, which means it's **not officially supported** by a support team.
 
 If you need help, have found a bug, or want to contribute improvements, the best place to do that is right here — by [opening a GitHub issue](https://github.com/yourusername/mcp-server-couchbase-bun/issues).
 Our support portal is unable to assist with requests related to this project, so we kindly ask that all inquiries stay within GitHub.
