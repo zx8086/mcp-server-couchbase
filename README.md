@@ -134,17 +134,34 @@ This is the configuration for the MCP clients such as Claude Desktop, Cursor, Wi
 
 The server can be configured using environment variables. The following variables are supported:
 
+### Couchbase Connection Settings
 - `COUCHBASE_URL`: The connection string to the Couchbase cluster
 - `COUCHBASE_USERNAME`: The username with access to the bucket to use to connect
 - `COUCHBASE_PASSWORD`: The password for the username to connect
 - `COUCHBASE_BUCKET`: The name of the bucket that the server will access
 - `COUCHBASE_SCOPE`: The scope to use within the bucket
 - `COUCHBASE_COLLECTION`: The collection to use within the scope
+- `CN_ROOT`: The root directory for Couchbase configuration (default: '/usr/src')
+
+### MCP Server Settings
+- `MCP_SERVER_NAME`: The name of the MCP server instance
+- `MCP_TRANSPORT`: The transport mode to use (stdio or sse)
+- `FASTMCP_PORT`: The port number for SSE transport mode (default: 8080)
+- `READ_ONLY_QUERY_MODE`: Setting to configure whether SQL++ queries that allow data to be modified are allowed (default: true)
 - `LOG_LEVEL`: The logging level (e.g., "debug", "info", "warn", "error")
+
+### Documentation Settings
 - `DOCS_ENABLED`: Enable/disable documentation features
 - `DOCS_BASE_DIR`: Base directory for documentation files
 - `DOCS_FILE_EXT`: File extension for documentation files
-- `READ_ONLY_QUERY_MODE`: Setting to configure whether SQL++ queries that allow data to be modified are allowed. It is set to True by default.
+
+### Playbook Settings
+- `PLAYBOOKS_ENABLED`: Enable/disable playbook features
+- `PLAYBOOKS_BASE_DIR`: Base directory for playbook files
+- `PLAYBOOKS_FILE_EXT`: File extension for playbook files
+
+### System Settings
+- `PWD`: The working directory for the MCP server
 
 ### Running the Server
 
