@@ -5,7 +5,7 @@
 [![Couchbase](https://img.shields.io/badge/Couchbase-EA2328?style=for-the-badge&logo=couchbase&logoColor=white)](https://www.couchbase.com/)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/zx8086/mcp-server-couchbase)
 
-An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase that allows LLMs to directly interact with Couchbase clusters. This is a TypeScript/Bun implementation of the original Python MCP server.
+An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase that allows LLMs to directly interact with Couchbase clusters.
 
 ## Features
 
@@ -40,9 +40,13 @@ An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase th
 
 #### Documentation Management
 - `list_documentation`: List available documentation for the MCP server tools and features
+- `read_documentation`: Read specific documentation entries
 - `create_documentation`: Create new documentation entries for tools and features
 - `delete_documentation`: Remove documentation entries
 - `sync_documentation`: Synchronize and update existing documentation
+
+#### Playbook Management
+- `list_playbooks`: List available playbooks for database operations
 
 ### Resources
 - Database Structure Resource: Access and manage database structure information
@@ -51,6 +55,7 @@ An [MCP](https://modelcontextprotocol.io/) server implementation of Couchbase th
 - Query Resource: Handle SQL++ query operations and results
 - Query Analysis Resource: Monitor and optimize query performance
 - Documentation Resource: Manage tool and feature documentation
+- Playbook Resource: Manage and execute database operation playbooks
 
 ### Security Features
 - `READ_ONLY_QUERY_MODE`: Default enabled setting to prevent SQL++ queries from modifying data
@@ -206,7 +211,7 @@ This implementation offers several advantages over the original Python version:
 
 ---
 
-## �� Support Policy
+## Support Policy
 
 We truly appreciate your interest in this project!
 This project is **community-maintained**, which means it's **not officially supported** by our support team.
